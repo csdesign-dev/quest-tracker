@@ -1,0 +1,279 @@
+import React, { useState, useCallback, useEffect } from 'react';
+import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  LayoutDashboard, CalendarCheck, BarChart3, ListTodo, Zap, Menu, X,
+  Download, Upload, LogOut, User, HelpCircle
+} from 'lucide-react';
+import {
+  loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
+  loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId,
+  createProfile, deleteProfile, migrateOldData
+} from './utils/storage';
+import { getAllPeriodScores } from './utils/scoring';
+import { defaultTasks } from './data/defaultTasks';
+import Dashboard from './components/Dashboard';
+import TodayView from './components/TodayView';
+import StatsView from './components/StatsView';
+import TaskManager from './components/TaskManager';
+import ProfileSelector from './components/ProfileSelector';
+import SupportView from './components/SupportView';
+import AuthScreen from './components/AuthScreen';
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
+  { id: 'today', label: 'Сьогодні', icon: CalendarCheck },
+  { id: 'stats', label: 'Статистика', icon: BarChart3 },
+  { id: 'tasks', label: 'Задачі', icon: ListTodo },
+  { id: 'support', label: 'Підтримка', icon: HelpCircle },
+];
+
+export default function App() {
+  const [profiles, setProfiles] = useState(() => loadProfiles());
+  const [activeProfileId, setActiveProfile] = useState(() => getActiveProfileId());
+  const [activePage, setActivePage] = useState('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Auto-migrate old data on first load
+  useEffect(() => {
+    if (profiles.length === 0) {
+      const migrated = migrateOldData();
+      if (migrated) {
+        setProfiles(loadProfiles());
+        setActiveProfile(migrated.id);
+      }
+    }
+  }, []);
+
+  const activeProfile = profiles.find(p => p.id === activeProfileId);
+  const isLoggedIn = !!activeProfile;
+
+  const [tasks, setTasks] = useState(() => {
+    if (activeProfileId) {
+      const saved = loadTasks(activeProfileId);
+      return saved || defaultTasks;
+    }
+    return defaultTasks;
+  });
+
+  // Reload tasks when profile changes
+  useEffect(() => {
+    if (activeProfileId) {
+      const saved = loadTasks(activeProfileId);
+      setTasks(saved || defaultTasks);
+    }
+  }, [activeProfileId]);
+
+  // Save on change
+  useEffect(() => {
+    if (activeProfileId) {
+      saveTasks(tasks, activeProfileId);
+    }
+  }, [tasks, activeProfileId]);
+
+  const scores = getAllPeriodScores(tasks);
+  const totalScore = scores.all?.score || 0;
+
+  // Profile actions
+  const handleSelectProfile = (id) => {
+    setActiveProfileId(id);
+    setActiveProfile(id);
+    setActivePage('dashboard');
+  };
+
+  const handleCreateProfile = (name, color) => {
+    const profile = createProfile(name, color);
+    setProfiles(loadProfiles());
+    handleSelectProfile(profile.id);
+  };
+
+  const handleDeleteProfile = (id) => {
+    deleteProfile(id);
+    setProfiles(loadProfiles());
+    if (activeProfileId === id) {
+      setActiveProfile(null);
+      localStorage.removeItem('quest-tracker-active-profile');
+    }
+  };
+
+  const handleLogout = () => {
+    setActiveProfile(null);
+    localStorage.removeItem('quest-tracker-active-profile');
+  };
+
+  // Task actions
+  const updateTask = useCallback((id, updates) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  }, []);
+
+  const addTask = useCallback((task) => {
+    const newTask = {
+      ...task,
+      id: uuidv4(),
+      createdAt: format(new Date(), 'yyyy-MM-dd'),
+      completions: {},
+    };
+    setTasks(prev => [...prev, newTask]);
+  }, []);
+
+  const deleteTask = useCallback((id) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const logCompletion = useCallback((taskId, dateStr, delta) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      const current = t.completions?.[dateStr] || 0;
+      const newVal = Math.max(0, current + delta);
+      return {
+        ...t,
+        completions: { ...t.completions, [dateStr]: newVal },
+      };
+    }));
+  }, []);
+
+  const handleExport = () => exportTasksJSON(tasks);
+
+  const handleImport = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        try {
+          const imported = await importTasksJSON(file);
+          setTasks(imported);
+        } catch (err) {
+          alert('Помилка імпорту: ' + err.message);
+        }
+      }
+    };
+    input.click();
+  };
+
+  const navigate = (page) => {
+    setActivePage(page);
+    setMobileMenuOpen(false);
+  };
+
+  // Show profile selector if not logged in
+  if (!isLoggedIn) {
+    return (
+      <ProfileSelector
+        profiles={profiles}
+        onSelect={handleSelectProfile}
+        onCreate={handleCreateProfile}
+        onDelete={handleDeleteProfile}
+      />
+    );
+  }
+
+  const renderPage = () => {
+    switch (activePage) {
+      case 'dashboard':
+        return <Dashboard tasks={tasks} scores={scores} logCompletion={logCompletion} onNavigate={navigate} />;
+      case 'today':
+        return <TodayView tasks={tasks} logCompletion={logCompletion} />;
+      case 'stats':
+        return <StatsView tasks={tasks} scores={scores} />;
+      case 'tasks':
+        return <TaskManager tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} />;
+      case 'support':
+        return <SupportView />;
+      default:
+        return <Dashboard tasks={tasks} scores={scores} logCompletion={logCompletion} onNavigate={navigate} />;
+    }
+  };
+
+  return (
+    <div className="app-layout">
+      {/* Mobile menu button */}
+      <button className="btn-icon mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">
+            <Zap size={22} color="white" />
+          </div>
+          <h1>Quest Tracker</h1>
+        </div>
+
+        {/* Active profile indicator */}
+        <div className="sidebar-profile" onClick={handleLogout} title="Змінити профіль">
+          <div className="sidebar-profile-avatar" style={{ background: activeProfile.color }}>
+            <User size={16} color="white" />
+          </div>
+          <div className="sidebar-profile-info">
+            <span className="sidebar-profile-name">{activeProfile.name}</span>
+            <span className="sidebar-profile-action">
+              <LogOut size={12} /> Змінити
+            </span>
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(item => (
+            <button
+              key={item.id}
+              className={`sidebar-nav-item ${activePage === item.id ? 'active' : ''}`}
+              onClick={() => navigate(item.id)}
+            >
+              <item.icon size={20} />
+              {item.label}
+            </button>
+          ))}
+
+          <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '12px 0' }} />
+
+          <button className="sidebar-nav-item" onClick={handleExport}>
+            <Download size={20} />
+            Експорт
+          </button>
+          <button className="sidebar-nav-item" onClick={handleImport}>
+            <Upload size={20} />
+            Імпорт
+          </button>
+        </nav>
+
+        <div className="sidebar-score">
+          <div className="sidebar-score-label">Загальний рахунок</div>
+          <div className="sidebar-score-value">{totalScore >= 0 ? '+' : ''}{totalScore}</div>
+          {(scores.all?.projected || 0) !== totalScore && (
+            <div style={{
+              fontSize: 'var(--font-xs)',
+              color: (scores.all?.projected || 0) < 0 ? 'var(--color-danger-light)' : 'var(--text-muted)',
+              marginTop: 4,
+            }}>
+              прогноз: {(scores.all?.projected || 0) >= 0 ? '+' : ''}{scores.all?.projected || 0}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {renderPage()}
+      </main>
+
+      {/* Mobile Bottom Nav */}
+      <div className="mobile-nav">
+        <div className="mobile-nav-items">
+          {NAV_ITEMS.map(item => (
+            <button
+              key={item.id}
+              className={`mobile-nav-item ${activePage === item.id ? 'active' : ''}`}
+              onClick={() => navigate(item.id)}
+            >
+              <item.icon size={20} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
