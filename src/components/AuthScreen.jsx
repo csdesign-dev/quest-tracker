@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Zap, Mail, KeyRound, Gift, ArrowRight, Loader2, Check } from 'lucide-react';
+import { supabase } from '../utils/supabase';
 
 /**
  * Auth screen with email OTP login.
@@ -21,12 +22,23 @@ export default function AuthScreen({ onLocalLogin }) {
     setLoading(true);
     setError('');
 
-    // TODO: Connect to Supabase auth.signInWithOtp({ email })
-    // For now, simulate sending OTP
-    await new Promise(r => setTimeout(r, 1500));
+    if (!supabase) {
+      setError('Помилка: Supabase не підключено');
+      setLoading(false);
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+    });
 
     setLoading(false);
-    setStep('otp');
+
+    if (signInError) {
+      setError(signInError.message);
+    } else {
+      setStep('otp');
+    }
   };
 
   const handleVerifyOTP = async (e) => {
@@ -39,13 +51,19 @@ export default function AuthScreen({ onLocalLogin }) {
     setLoading(true);
     setError('');
 
-    // TODO: Connect to Supabase auth.verifyOtp({ email, token: otp })
-    // For now, simulate verification
-    await new Promise(r => setTimeout(r, 1500));
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otp.trim(),
+      type: 'email',
+    });
 
-    // Simulate success — in real app this would set Supabase session
     setLoading(false);
-    setStep('promo');
+
+    if (verifyError) {
+      setError('Невірний код. Спробуйте ще раз.');
+    } else {
+      setStep('promo');
+    }
   };
 
   const handlePromoCheck = async () => {
@@ -54,14 +72,21 @@ export default function AuthScreen({ onLocalLogin }) {
     setLoading(true);
     setPromoResult(null);
 
-    // TODO: Check promo code against Supabase table
-    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const { data, error } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .eq('code', promoCode.toUpperCase())
+        .single();
 
-    // Simulate promo check
-    if (promoCode.toUpperCase() === 'QUEST2026') {
-      setPromoResult({ valid: true, message: '🎉 Промокод активовано! Безкоштовний доступ.' });
-    } else {
-      setPromoResult({ valid: false, message: 'Промокод не знайдено' });
+      if (error || !data) {
+        setPromoResult({ valid: false, message: 'Промокод не знайдено' });
+      } else {
+        setPromoResult({ valid: true, message: data.is_free ? '🎉 Промокод активовано! Безкоштовний доступ.' : `🎉 Знижка ${data.discount_percent}% активована!` });
+        // В реальному житті тут потрібно зберегти в user_promos
+      }
+    } catch (err) {
+      setPromoResult({ valid: false, message: 'Помилка перевірки' });
     }
     setLoading(false);
   };

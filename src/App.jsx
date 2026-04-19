@@ -19,6 +19,7 @@ import TaskManager from './components/TaskManager';
 import ProfileSelector from './components/ProfileSelector';
 import SupportView from './components/SupportView';
 import AuthScreen from './components/AuthScreen';
+import { supabase } from './utils/supabase';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
@@ -33,6 +34,30 @@ export default function App() {
   const [activeProfileId, setActiveProfile] = useState(() => getActiveProfileId());
   const [activePage, setActivePage] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Supabase Auth State
+  const [session, setSession] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthInitialized(true);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthInitialized(true);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Auto-migrate old data on first load
   useEffect(() => {
@@ -45,7 +70,10 @@ export default function App() {
     }
   }, []);
 
-  const activeProfile = profiles.find(p => p.id === activeProfileId);
+  const activeProfile = session 
+    ? { id: session.user.id, name: session.user.email, color: '#7c3aed' }
+    : profiles.find(p => p.id === activeProfileId);
+    
   const isLoggedIn = !!activeProfile;
 
   const [tasks, setTasks] = useState(() => {
@@ -96,7 +124,10 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (session && supabase) {
+      await supabase.auth.signOut();
+    }
     setActiveProfile(null);
     localStorage.removeItem('quest-tracker-active-profile');
   };
@@ -157,8 +188,21 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
-  // Show profile selector if not logged in
+  // Show auth selector if not logged in
+  if (!authInitialized) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>Завантаження...</div>;
+  }
+
   if (!isLoggedIn) {
+    if (supabase) {
+      return (
+        <AuthScreen onLocalLogin={(email) => {
+          // Fallback to local profile creation if they requested local login
+          const name = email ? email.split('@')[0] : 'Профіль';
+          handleCreateProfile(name, '#7c3aed');
+        }} />
+      );
+    }
     return (
       <ProfileSelector
         profiles={profiles}
