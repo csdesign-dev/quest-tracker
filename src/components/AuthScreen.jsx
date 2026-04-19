@@ -44,7 +44,7 @@ export default function AuthScreen({ onLocalLogin }) {
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
     if (!otp.trim() || otp.length < 6) {
-      setError('Введіть 6-значний код');
+      setError('Введіть коректний код');
       return;
     }
 
@@ -188,11 +188,10 @@ export default function AuthScreen({ onLocalLogin }) {
                   <input
                     className="form-input"
                     type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="000000"
+                    maxLength={8}
+                    placeholder="00000000"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) => setOtp(e.target.value.trim().slice(0, 8))}
                     autoFocus
                     style={{
                       paddingLeft: 44,
