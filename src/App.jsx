@@ -22,8 +22,8 @@ import AuthScreen from './components/AuthScreen';
 import { supabase } from './utils/supabase';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { id: 'today', label: 'Сьогодні', icon: CalendarCheck },
+  { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { id: 'stats', label: 'Статистика', icon: BarChart3 },
   { id: 'tasks', label: 'Задачі', icon: ListTodo },
   { id: 'support', label: 'Підтримка', icon: HelpCircle },
@@ -32,7 +32,7 @@ const NAV_ITEMS = [
 export default function App() {
   const [profiles, setProfiles] = useState(() => loadProfiles());
   const [activeProfileId, setActiveProfile] = useState(() => getActiveProfileId());
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState('today');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Supabase Auth State
@@ -109,7 +109,7 @@ export default function App() {
   const handleSelectProfile = (id) => {
     setActiveProfileId(id);
     setActiveProfile(id);
-    setActivePage('dashboard');
+    setActivePage('today');
   };
 
   const handleCreateProfile = (name, color) => {
@@ -229,7 +229,7 @@ export default function App() {
       case 'support':
         return <SupportView />;
       default:
-        return <Dashboard tasks={tasks} scores={scores} logCompletion={logCompletion} onNavigate={navigate} />;
+        return <TodayView tasks={tasks} logCompletion={logCompletion} />;
     }
   };
 
