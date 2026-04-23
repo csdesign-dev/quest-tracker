@@ -76,6 +76,9 @@ export default function App() {
     
   const isLoggedIn = !!activeProfile;
 
+  // Determine the effective profile ID for storage
+  const currentProfileId = session ? session.user.id : activeProfileId;
+
   const [tasks, setTasks] = useState(() => {
     if (activeProfileId) {
       const saved = loadTasks(activeProfileId);
@@ -84,20 +87,20 @@ export default function App() {
     return defaultTasks;
   });
 
-  // Reload tasks when profile changes
+  // Reload tasks when profile or session changes
   useEffect(() => {
-    if (activeProfileId) {
-      const saved = loadTasks(activeProfileId);
+    if (currentProfileId) {
+      const saved = loadTasks(currentProfileId);
       setTasks(saved || defaultTasks);
     }
-  }, [activeProfileId]);
+  }, [currentProfileId]);
 
   // Save on change
   useEffect(() => {
-    if (activeProfileId) {
-      saveTasks(tasks, activeProfileId);
+    if (currentProfileId) {
+      saveTasks(tasks, currentProfileId);
     }
-  }, [tasks, activeProfileId]);
+  }, [tasks, currentProfileId]);
 
   const scores = getAllPeriodScores(tasks);
   const totalScore = scores.all?.score || 0;
