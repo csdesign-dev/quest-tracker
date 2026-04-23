@@ -12,7 +12,6 @@ import {
 } from './utils/storage';
 import { getAllPeriodScores } from './utils/scoring';
 import { defaultTasks } from './data/defaultTasks';
-import Dashboard from './components/Dashboard';
 import TodayView from './components/TodayView';
 import StatsView from './components/StatsView';
 import TaskManager from './components/TaskManager';
@@ -23,7 +22,6 @@ import { supabase } from './utils/supabase';
 
 const NAV_ITEMS = [
   { id: 'today', label: 'Сьогодні', icon: CalendarCheck },
-  { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { id: 'stats', label: 'Статистика', icon: BarChart3 },
   { id: 'tasks', label: 'Задачі', icon: ListTodo },
   { id: 'support', label: 'Підтримка', icon: HelpCircle },
@@ -218,8 +216,6 @@ export default function App() {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard':
-        return <Dashboard tasks={tasks} scores={scores} logCompletion={logCompletion} onNavigate={navigate} />;
       case 'today':
         return <TodayView tasks={tasks} logCompletion={logCompletion} />;
       case 'stats':

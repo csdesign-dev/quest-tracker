@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { BarChart3, TrendingUp, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, Calendar, AlertTriangle, LayoutDashboard } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, CartesianGrid,
@@ -81,10 +81,47 @@ export default function StatsView({ tasks, scores }) {
     <div className="animate-fade-in">
       <div className="page-header">
         <h2>
-          <BarChart3 size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-          Статистика
+          <LayoutDashboard size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+          Статистика та Дашборд
         </h2>
-        <p>Детальний аналіз вашого прогресу</p>
+        <p>Загальна інформація та детальний аналіз прогресу</p>
+      </div>
+
+      {/* Quick Score Cards (from Dashboard) */}
+      <div className="score-cards-row" style={{ marginBottom: 'var(--space-xl)' }}>
+        {['day', 'week', 'month', 'all'].map(key => {
+          const s = scores[key] || {};
+          const score = s.score || 0;
+          const projected = s.projected || 0;
+          const showProjected = projected !== score;
+          return (
+            <div key={key} className="score-card" onClick={() => setSelectedPeriod(key)}>
+              <div className="score-card-period">{PERIOD_LABELS[key]}</div>
+              <div className="score-card-value" style={{
+                color: score >= 0 ? 'var(--color-success-light)' : 'var(--color-danger-light)'
+              }}>
+                {score >= 0 ? '+' : ''}{score}
+              </div>
+              {showProjected && (
+                <div style={{
+                  fontSize: 'var(--font-xs)',
+                  color: projected < 0 ? 'var(--color-danger-light)' : 'var(--text-muted)',
+                  marginTop: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 3,
+                }}>
+                  <AlertTriangle size={10} />
+                  прогноз: {projected >= 0 ? '+' : ''}{projected}
+                </div>
+              )}
+              <div className="score-card-max">
+                з {s.max || 0}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Period Selector */}
