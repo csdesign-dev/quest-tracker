@@ -19,9 +19,14 @@ const emptyTask = {
   targetType: 'count',
   target: 1,
   rewardPoints: 1,
-  penaltyPoints: 0,
+  penaltyPoints: -1,
   bonusTiers: [],
   deadline: null,
+  challengeType: 'date',
+  rewardStrategy: 'per_completion',
+  durationDays: 30,
+  durationWeeks: 4,
+  completions: {},
 };
 
 export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) {
@@ -395,15 +400,70 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                   )}
                 </div>
 
-                {formData.type === 'deadline' && (
-                  <div className="form-group">
-                    <label className="form-label">Дедлайн</label>
-                    <input
-                      className="form-input"
-                      type="date"
-                      value={formData.deadline || ''}
-                      onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                    />
+                {formData.type === 'challenge' && (
+                  <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <label className="form-label">Тип челленджу</label>
+                      <select
+                        className="form-select"
+                        value={formData.challengeType}
+                        onChange={(e) => setFormData({ ...formData, challengeType: e.target.value })}
+                      >
+                        <option value="date">До конкретної дати</option>
+                        <option value="daily_streak">Щоденне виконання (X днів)</option>
+                        <option value="weekly_recurrent">Тижневе виконання (X тижнів)</option>
+                      </select>
+                    </div>
+
+                    {formData.challengeType === 'date' && (
+                      <div className="form-group">
+                        <label className="form-label">Дедлайн</label>
+                        <input
+                          className="form-input"
+                          type="date"
+                          value={formData.deadline || ''}
+                          onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                        />
+                      </div>
+                    )}
+
+                    {formData.challengeType === 'daily_streak' && (
+                      <div className="form-group">
+                        <label className="form-label">Тривалість (днів)</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="1"
+                          value={formData.durationDays}
+                          onChange={(e) => setFormData({ ...formData, durationDays: Number(e.target.value) })}
+                        />
+                      </div>
+                    )}
+
+                    {formData.challengeType === 'weekly_recurrent' && (
+                      <div className="form-group">
+                        <label className="form-label">Тривалість (тижнів)</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="1"
+                          value={formData.durationWeeks}
+                          onChange={(e) => setFormData({ ...formData, durationWeeks: Number(e.target.value) })}
+                        />
+                      </div>
+                    )}
+
+                    <div className="form-group" style={{ marginTop: 12, marginBottom: 0 }}>
+                      <label className="form-label">Коли нараховувати бали?</label>
+                      <select
+                        className="form-select"
+                        value={formData.rewardStrategy}
+                        onChange={(e) => setFormData({ ...formData, rewardStrategy: e.target.value })}
+                      >
+                        <option value="per_completion">За кожне проміжне виконання + Бонус в кінці</option>
+                        <option value="end_only">Лише в кінці за весь челлендж</option>
+                      </select>
+                    </div>
                   </div>
                 )}
 

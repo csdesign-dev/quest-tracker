@@ -166,22 +166,49 @@ function scoreMonthlyForMonth(task, monthStart, monthEnd) {
 }
 
 /**
- * Calculate score for a DEADLINE task
+ * Calculate score for a CHALLENGE task
  */
-function scoreDeadline(task) {
-  if (!task.deadline) return 0;
-  const deadlineDate = new Date(task.deadline);
-  const totalCompletions = Object.values(task.completions || {}).reduce((a, b) => a + b, 0);
+function scoreChallenge(task) {
+  const taskStartDate = task.createdAt ? startOfDay(new Date(task.createdAt)) : new Date(2020, 0, 1);
+  const today = startOfDay(new Date());
   
-  if (totalCompletions >= (task.target || 1)) {
-    return task.rewardPoints || 0;
+  let isExpired = false;
+  let target = task.target || 1;
+  let totalCompletions = Object.values(task.completions || {}).reduce((a, b) => a + b, 0);
+
+  if (task.challengeType === 'date') {
+    if (task.deadline) {
+      isExpired = isBefore(startOfDay(new Date(task.deadline)), today);
+    }
+  } else if (task.challengeType === 'daily_streak') {
+    const duration = task.durationDays || 30;
+    const daysDiff = Math.floor((today - taskStartDate) / (1000 * 60 * 60 * 24));
+    isExpired = daysDiff >= duration;
+    target = duration * (task.target || 1);
+  } else if (task.challengeType === 'weekly_recurrent') {
+    const duration = task.durationWeeks || 4;
+    const weeksDiff = Math.floor((today - taskStartDate) / (1000 * 60 * 60 * 24 * 7));
+    isExpired = weeksDiff >= duration;
+    target = duration * (task.target || 1);
   }
+
+  let score = 0;
   
-  if (isBefore(deadlineDate, startOfDay(new Date()))) {
-    return task.penaltyPoints || 0; // missed deadline
+  if (task.rewardStrategy === 'per_completion') {
+    score += totalCompletions * (task.rewardPoints || 0);
+    if (isExpired && totalCompletions < target) {
+      score += (task.penaltyPoints || 0);
+    }
+  } else {
+    // end_only
+    if (totalCompletions >= target) {
+      score += (task.rewardPoints || 0);
+    } else if (isExpired) {
+      score += (task.penaltyPoints || 0);
+    }
   }
-  
-  return 0; // still in progress
+
+  return score;
 }
 
 /**
@@ -332,8 +359,8 @@ export function calculateTaskScore(task, startDate, endDate) {
       return total;
     }
     
-    case 'deadline':
-      return scoreDeadline(task);
+    case 'challenge':
+      return scoreChallenge(task);
     
     case 'bonus':
       return scoreBonusForRange(task, startDate, endDate);
@@ -394,8 +421,15 @@ export function calculateMaxScore(task, startDate, endDate) {
       return months.filter(m => !isBefore(m.end, createdAt) && !isTaskPausedForPeriod(task, m.start, m.end).paused).length * maxPerMonth;
     }
     
-    case 'deadline':
+    case 'challenge': {
+      if (task.rewardStrategy === 'per_completion') {
+        let target = task.target || 1;
+        if (task.challengeType === 'daily_streak') target = (task.durationDays || 30) * target;
+        if (task.challengeType === 'weekly_recurrent') target = (task.durationWeeks || 4) * target;
+        return target * (task.rewardPoints || 0);
+      }
       return task.rewardPoints || 0;
+    }
     
     case 'bonus':
       return Infinity; // no max for bonus tasks
@@ -468,8 +502,8 @@ export function calculateProjectedScore(task, startDate, endDate) {
       return total;
     }
     
-    case 'deadline':
-      return scoreDeadline(task);
+    case 'challenge':
+      return scoreChallenge(task);
     
     case 'bonus':
       return scoreBonusForRange(task, startDate, endDate);

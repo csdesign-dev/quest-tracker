@@ -21,7 +21,7 @@ export default function TodayView({ tasks, logCompletion }) {
   const isValidForDate = (task, dateToCheck) => {
     if (!task.enabled || task.status === 'paused') return false;
     if (!task.createdAt) return true;
-    return dateStr >= task.createdAt; // Both are 'yyyy-MM-dd' strings, safe to compare
+    return dateStr >= task.createdAt;
   };
 
   const isValidForPeriod = (task, periodEnd) => {
@@ -30,11 +30,36 @@ export default function TodayView({ tasks, logCompletion }) {
     return format(periodEnd, 'yyyy-MM-dd') >= task.createdAt;
   };
 
+  const isChallengeActiveOnDate = (task, dateStr) => {
+    if (!task.enabled || task.status === 'paused') return false;
+    if (!task.createdAt) return true;
+    if (dateStr < task.createdAt) return false;
+    
+    const taskStartDate = startOfDay(new Date(task.createdAt));
+    const currentDate = startOfDay(new Date(dateStr));
+
+    if (task.challengeType === 'date') {
+      if (!task.deadline) return true;
+      return dateStr <= task.deadline;
+    }
+    if (task.challengeType === 'daily_streak') {
+      const duration = task.durationDays || 30;
+      const daysDiff = Math.floor((currentDate - taskStartDate) / (1000 * 60 * 60 * 24));
+      return daysDiff < duration;
+    }
+    if (task.challengeType === 'weekly_recurrent') {
+      const duration = task.durationWeeks || 4;
+      const weeksDiff = Math.floor((currentDate - taskStartDate) / (1000 * 60 * 60 * 24 * 7));
+      return weeksDiff < duration;
+    }
+    return true;
+  };
+
   const dailyTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'daily');
   const weeklyTasks = tasks.filter(t => isValidForPeriod(t, weekEnd) && t.type === 'weekly');
   const monthlyTasks = tasks.filter(t => isValidForPeriod(t, monthEnd) && t.type === 'monthly');
   const bonusTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'bonus');
-  const deadlineTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'deadline');
+  const challengeTasks = tasks.filter(t => t.type === 'challenge' && isChallengeActiveOnDate(t, dateStr));
   const limitTasks = tasks.filter(t => isValidForPeriod(t, weekEnd) && t.type === 'limit');
 
   // Generate week days for mini calendar
@@ -334,16 +359,39 @@ export default function TodayView({ tasks, logCompletion }) {
         </div>
       )}
 
-      {/* Deadline Tasks */}
-      {deadlineTasks.length > 0 && (
+      {/* Challenge Tasks */}
+      {challengeTasks.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">⏰ Задачі з дедлайном</span>
+            <span className="card-title">🏆 Челленджі</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {deadlineTasks.map(task => (
-              <TaskItem key={task.id} task={task} dateStr={dateStr} onLog={logCompletion} />
-            ))}
+            {challengeTasks.map(task => {
+              const taskStartDate = startOfDay(new Date(task.createdAt || dateStr));
+              const currentDate = startOfDay(new Date(dateStr));
+              
+              let metaText = '';
+              if (task.challengeType === 'date' && task.deadline) {
+                metaText = `До ${format(new Date(task.deadline), 'dd.MM.yyyy')}`;
+              } else if (task.challengeType === 'daily_streak') {
+                const dayNum = Math.floor((currentDate - taskStartDate) / (1000 * 60 * 60 * 24)) + 1;
+                metaText = `День ${dayNum} з ${task.durationDays}`;
+              } else if (task.challengeType === 'weekly_recurrent') {
+                const weekNum = Math.floor((currentDate - taskStartDate) / (1000 * 60 * 60 * 24 * 7)) + 1;
+                metaText = `Тиждень ${weekNum} з ${task.durationWeeks}`;
+              }
+
+              return (
+                <div key={task.id} style={{ position: 'relative' }}>
+                  <TaskItem task={task} dateStr={dateStr} onLog={logCompletion} />
+                  {metaText && (
+                    <div style={{ position: 'absolute', top: 4, right: 4, fontSize: 10, color: 'var(--color-primary)', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                      {metaText}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

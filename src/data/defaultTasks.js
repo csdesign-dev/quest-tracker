@@ -152,7 +152,7 @@ export const TASK_TYPES = [
   { value: 'daily', label: 'Щоденна', color: '#818cf8' },
   { value: 'weekly', label: 'Тижнева', color: '#34d399' },
   { value: 'monthly', label: 'Місячна', color: '#fbbf24' },
-  { value: 'deadline', label: 'З дедлайном', color: '#fca5a5' },
+  { value: 'challenge', label: 'Челлендж', color: '#fca5a5' },
   { value: 'bonus', label: 'Бонусна', color: '#c084fc' },
   { value: 'limit', label: 'Ліміт', color: '#fb923c' },
 ];
