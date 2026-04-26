@@ -13,6 +13,8 @@ const emptyTask = {
   type: 'daily',
   icon: 'Star',
   category: "Здоров'я",
+  status: 'active',
+  pauseHistory: [],
   enabled: true,
   targetType: 'count',
   target: 1,
@@ -27,6 +29,33 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
   const [editingTask, setEditingTask] = useState(null);
   const [formData, setFormData] = useState({ ...emptyTask });
   const [filterType, setFilterType] = useState('all');
+
+  const handleTogglePause = (task) => {
+    const isPausing = task.status !== 'paused';
+    
+    let evaluateCurrentPeriod = false;
+    if (isPausing && ['weekly', 'monthly', 'limit'].includes(task.type)) {
+      evaluateCurrentPeriod = window.confirm(
+        "Ви ставите задачу на паузу.\n\nЧи хочете ви оцінити її результати за цей період (тиждень/місяць) на основі вже виконаної роботи?\n\n- Натисніть 'OK' щоб зарахувати/оштрафувати поточний прогрес.\n- Натисніть 'Cancel' щоб взагалі скасувати задачу на цей період."
+      );
+    }
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    let newPauseHistory = [...(task.pauseHistory || [])];
+
+    if (isPausing) {
+      newPauseHistory.push({ start: todayStr, end: null, evaluateCurrentPeriod });
+    } else {
+      if (newPauseHistory.length > 0 && !newPauseHistory[newPauseHistory.length - 1].end) {
+        newPauseHistory[newPauseHistory.length - 1].end = todayStr;
+      }
+    }
+
+    updateTask(task.id, {
+      status: isPausing ? 'paused' : 'active',
+      pauseHistory: newPauseHistory
+    });
+  };
   const [filterCategory, setFilterCategory] = useState('all');
   const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -157,7 +186,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
             </thead>
             <tbody>
               {filteredTasks.map(task => (
-                <tr key={task.id} style={{ opacity: task.enabled ? 1 : 0.5 }}>
+                <tr key={task.id} style={{ opacity: task.status === 'paused' ? 0.5 : 1 }}>
                   <td>
                     <div className={`task-item-icon ${task.type}`} style={{ width: 32, height: 32 }}>
                       <DynamicIcon name={task.icon} size={16} />
@@ -188,11 +217,11 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                   </td>
                   <td>
                     <button
-                      className={`btn btn-sm ${task.enabled ? 'btn-success' : 'btn-secondary'}`}
+                      className={`btn btn-sm ${task.status === 'paused' ? 'btn-secondary' : 'btn-success'}`}
                       style={{ fontSize: 11, padding: '2px 8px' }}
-                      onClick={() => updateTask(task.id, { enabled: !task.enabled })}
+                      onClick={() => handleTogglePause(task)}
                     >
-                      {task.enabled ? 'Активна' : 'Вимкнена'}
+                      {task.status === 'paused' ? 'На паузі' : 'Активна'}
                     </button>
                   </td>
                   <td>

@@ -13,12 +13,12 @@ export default function TodayView({ tasks, logCompletion }) {
   const dateLabel = format(selectedDate, "EEEE, d MMMM yyyy", { locale: uk });
   const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
 
-  const dailyTasks = tasks.filter(t => t.enabled && t.type === 'daily');
-  const weeklyTasks = tasks.filter(t => t.enabled && t.type === 'weekly');
-  const monthlyTasks = tasks.filter(t => t.enabled && t.type === 'monthly');
-  const bonusTasks = tasks.filter(t => t.enabled && t.type === 'bonus');
-  const deadlineTasks = tasks.filter(t => t.enabled && t.type === 'deadline');
-  const limitTasks = tasks.filter(t => t.enabled && t.type === 'limit');
+  const dailyTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'daily');
+  const weeklyTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'weekly');
+  const monthlyTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'monthly');
+  const bonusTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'bonus');
+  const deadlineTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'deadline');
+  const limitTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'limit');
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });

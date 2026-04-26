@@ -40,6 +40,36 @@ export function getCompletionsForDate(task, dateStr) {
   return task.completions?.[dateStr] || 0;
 }
 
+export function isTaskPausedOnDate(task, dateStr) {
+  if (task.status !== 'paused' && (!task.pauseHistory || task.pauseHistory.length === 0)) return { paused: false };
+  if (!task.pauseHistory) return { paused: task.status === 'paused' };
+
+  for (const p of task.pauseHistory) {
+    if (dateStr >= p.start && (!p.end || dateStr <= p.end)) {
+      return { paused: true, evaluateCurrentPeriod: p.evaluateCurrentPeriod || false };
+    }
+  }
+  return { paused: false };
+}
+
+export function isTaskPausedForPeriod(task, periodStart, periodEnd) {
+  const endStr = format(periodEnd, 'yyyy-MM-dd');
+  const startStr = format(periodStart, 'yyyy-MM-dd');
+  if (!task.pauseHistory) return { paused: task.status === 'paused' };
+  
+  for (const p of task.pauseHistory) {
+    if (endStr >= p.start && (!p.end || endStr <= p.end)) {
+      const initiatedDuringPeriod = p.start >= startStr && p.start <= endStr;
+      if (initiatedDuringPeriod && p.evaluateCurrentPeriod) {
+        return { paused: false }; 
+      } else {
+        return { paused: true };
+      }
+    }
+  }
+  return { paused: false };
+}
+
 /**
  * Get total completions for a task within a date range
  */
@@ -58,6 +88,9 @@ export function getCompletionsInRange(task, startDate, endDate) {
  * @param {boolean} isCurrentDay - if true, don't apply penalty (day not over yet)
  */
 function scoreDailyForDay(task, dateStr, isCurrentDay = false) {
+  const pauseStatus = isTaskPausedOnDate(task, dateStr);
+  if (pauseStatus.paused) return 0;
+
   const completions = getCompletionsForDate(task, dateStr);
   const target = task.target || 1;
   
@@ -85,6 +118,9 @@ function scoreDailyForDay(task, dateStr, isCurrentDay = false) {
  * Calculate score for a WEEKLY task for a given week
  */
 function scoreWeeklyForWeek(task, weekStart, weekEnd) {
+  const pauseStatus = isTaskPausedForPeriod(task, weekStart, weekEnd);
+  if (pauseStatus.paused) return 0;
+
   const totalCompletions = getCompletionsInRange(task, weekStart, weekEnd);
   const target = task.target || 1;
   
@@ -108,6 +144,9 @@ function scoreWeeklyForWeek(task, weekStart, weekEnd) {
  * Calculate score for a MONTHLY task for a given month
  */
 function scoreMonthlyForMonth(task, monthStart, monthEnd) {
+  const pauseStatus = isTaskPausedForPeriod(task, monthStart, monthEnd);
+  if (pauseStatus.paused) return 0;
+
   const totalCompletions = getCompletionsInRange(task, monthStart, monthEnd);
   const target = task.target || 1;
   
@@ -159,6 +198,9 @@ function scoreBonusForRange(task, startDate, endDate) {
  * If within limit = reward.
  */
 function scoreLimitForWeek(task, weekStart, weekEnd) {
+  const pauseStatus = isTaskPausedForPeriod(task, weekStart, weekEnd);
+  if (pauseStatus.paused) return 0;
+
   const totalCompletions = getCompletionsInRange(task, weekStart, weekEnd);
   const limit = task.target || 1;
   
@@ -188,7 +230,7 @@ function maxDailyInRange(task, startDate, endDate) {
   const applicableDays = days.filter(d => !isBefore(today, startOfDay(d)) || format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd'));
   // Also only count days after task creation
   const createdAt = task.createdAt ? startOfDay(new Date(task.createdAt)) : new Date(2020, 0, 1);
-  const validDays = applicableDays.filter(d => !isBefore(startOfDay(d), createdAt));
+  const validDays = applicableDays.filter(d => !isBefore(startOfDay(d), createdAt) && !isTaskPausedOnDate(task, format(d, 'yyyy-MM-dd')).paused);
   
   return validDays.length * maxPerDay;
 }
@@ -337,7 +379,7 @@ export function calculateMaxScore(task, startDate, endDate) {
           maxPerWeek += tier.points;
         }
       }
-      return weeks.filter(w => !isBefore(w.end, createdAt)).length * maxPerWeek;
+      return weeks.filter(w => !isBefore(w.end, createdAt) && !isTaskPausedForPeriod(task, w.start, w.end).paused).length * maxPerWeek;
     }
     
     case 'monthly': {
@@ -349,7 +391,7 @@ export function calculateMaxScore(task, startDate, endDate) {
           maxPerMonth += tier.points;
         }
       }
-      return months.filter(m => !isBefore(m.end, createdAt)).length * maxPerMonth;
+      return months.filter(m => !isBefore(m.end, createdAt) && !isTaskPausedForPeriod(task, m.start, m.end).paused).length * maxPerMonth;
     }
     
     case 'deadline':
@@ -361,7 +403,7 @@ export function calculateMaxScore(task, startDate, endDate) {
     case 'limit': {
       const weeks = getWeeksInRange(startDate, endDate);
       const createdAt = task.createdAt ? startOfDay(new Date(task.createdAt)) : new Date(2020, 0, 1);
-      return weeks.filter(w => !isBefore(w.end, createdAt)).length * (task.rewardPoints || 0);
+      return weeks.filter(w => !isBefore(w.end, createdAt) && !isTaskPausedForPeriod(task, w.start, w.end).paused).length * (task.rewardPoints || 0);
     }
     
     default:
