@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Pencil, Trash2, Settings, X, Save, Copy } from 'lucide-react';
+import { Plus, Pencil, Trash2, Settings, X, Save, Copy, Pause, Play } from 'lucide-react';
 import { CATEGORIES, TASK_TYPES, ICON_OPTIONS } from '../data/defaultTasks';
 import DynamicIcon from './DynamicIcon';
 import { v4 as uuidv4 } from 'uuid';
@@ -216,16 +216,18 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                     ) : '—'}
                   </td>
                   <td>
-                    <button
-                      className={`btn btn-sm ${task.status === 'paused' ? 'btn-secondary' : 'btn-success'}`}
-                      style={{ fontSize: 11, padding: '2px 8px' }}
-                      onClick={() => handleTogglePause(task)}
+                    <span
+                      className={`badge ${task.status === 'paused' ? 'badge-secondary' : 'badge-success'}`}
+                      style={{ fontSize: 11, padding: '4px 8px' }}
                     >
                       {task.status === 'paused' ? 'На паузі' : 'Активна'}
-                    </button>
+                    </span>
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn-icon" style={{ width: 28, height: 28, color: task.status === 'paused' ? 'var(--color-success)' : 'var(--color-warning)' }} onClick={() => handleTogglePause(task)} title={task.status === 'paused' ? 'Відновити' : 'Поставити на паузу'}>
+                        {task.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
+                      </button>
                       <button className="btn-icon" style={{ width: 28, height: 28 }} onClick={() => openEditForm(task)} title="Редагувати">
                         <Pencil size={14} />
                       </button>
