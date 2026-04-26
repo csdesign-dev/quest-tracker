@@ -56,7 +56,16 @@ export default function TaskItem({ task, dateStr, onLog }) {
         <div className="task-counter">
           <button
             className="task-counter-btn"
-            onClick={() => onLog(task.id, dateStr, -1)}
+            onClick={() => {
+              if (task.targetType === 'time') {
+                const val = window.prompt('Скільки хвилин відняти?', '15');
+                if (val && !isNaN(val)) {
+                  onLog(task.id, dateStr, -Math.abs(Number(val)));
+                }
+              } else {
+                onLog(task.id, dateStr, -1);
+              }
+            }}
             disabled={completions <= 0}
           >
             <Minus size={16} />
@@ -64,10 +73,19 @@ export default function TaskItem({ task, dateStr, onLog }) {
           <span className="task-counter-value" style={isLimit && completions > target ? { color: 'var(--color-danger)' } : {}}>
             {completions}
           </span>
-          <span className="task-counter-target">{isLimit ? `макс ${target}` : `/ ${target}`}</span>
+          <span className="task-counter-target">{isLimit ? `макс ${target}` : `/ ${target}`} {task.targetType === 'time' ? 'хв' : ''}</span>
           <button
             className="task-counter-btn"
-            onClick={() => onLog(task.id, dateStr, 1)}
+            onClick={() => {
+              if (task.targetType === 'time') {
+                const val = window.prompt('Скільки хвилин додати?', '15');
+                if (val && !isNaN(val)) {
+                  onLog(task.id, dateStr, Math.abs(Number(val)));
+                }
+              } else {
+                onLog(task.id, dateStr, 1);
+              }
+            }}
           >
             <Plus size={16} />
           </button>

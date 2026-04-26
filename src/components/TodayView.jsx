@@ -36,6 +36,18 @@ export default function TodayView({ tasks, logCompletion }) {
   });
   const goToday = () => setSelectedDate(new Date());
 
+  const handleLog = (task, delta) => {
+    if (task.targetType === 'time') {
+      const isAdd = delta > 0;
+      const val = window.prompt(`Скільки хвилин ${isAdd ? 'додати' : 'відняти'}?`, '15');
+      if (val && !isNaN(val)) {
+        logCompletion(task.id, dateStr, isAdd ? Math.abs(Number(val)) : -Math.abs(Number(val)));
+      }
+    } else {
+      logCompletion(task.id, dateStr, delta);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -129,7 +141,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-item-name">{task.name}</div>
                     <div className="task-item-meta">
                       <span className="badge badge-weekly">Тижнева</span>
-                      <span>За тиждень: {weeklyCompletions} / {task.target}</span>
+                      <span>За тиждень: {weeklyCompletions} / {task.target} {task.targetType === 'time' ? 'хв' : ''}</span>
                       {task.rewardPoints > 0 && <span className="points-badge points-positive">+{task.rewardPoints}</span>}
                       {task.penaltyPoints < 0 && <span className="points-badge points-negative">{task.penaltyPoints}</span>}
                     </div>
@@ -146,7 +158,7 @@ export default function TodayView({ tasks, logCompletion }) {
                         {task.bonusTiers.map((tier, i) => (
                           <span key={i} className={`points-badge ${weeklyCompletions >= tier.threshold ? 'points-positive' : ''}`}
                             style={{ opacity: weeklyCompletions >= tier.threshold ? 1 : 0.5 }}>
-                            {tier.threshold}× → +{tier.points}
+                            {tier.threshold}{task.targetType === 'time' ? 'хв' : '×'} → +{tier.points}
                           </span>
                         ))}
                       </div>
@@ -156,7 +168,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-counter">
                       <button
                         className="task-counter-btn"
-                        onClick={() => logCompletion(task.id, dateStr, -1)}
+                        onClick={() => handleLog(task, -1)}
                         disabled={todayCompletions <= 0}
                       >
                         <Minus size={16} />
@@ -165,7 +177,7 @@ export default function TodayView({ tasks, logCompletion }) {
                       <span className="task-counter-target">сьог.</span>
                       <button
                         className="task-counter-btn"
-                        onClick={() => logCompletion(task.id, dateStr, 1)}
+                        onClick={() => handleLog(task, 1)}
                       >
                         <Plus size={16} />
                       </button>
@@ -197,7 +209,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-item-name">{task.name}</div>
                     <div className="task-item-meta">
                       <span className="badge badge-monthly">Місячна</span>
-                      <span>Виконано: {monthlyCompletions} / {task.target}</span>
+                      <span>Виконано: {monthlyCompletions} / {task.target} {task.targetType === 'time' ? 'хв' : ''}</span>
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <div className="progress-bar-container">
@@ -210,12 +222,12 @@ export default function TodayView({ tasks, logCompletion }) {
                   </div>
                   <div className="task-item-progress">
                     <div className="task-counter">
-                      <button className="task-counter-btn" onClick={() => logCompletion(task.id, dateStr, -1)}
+                      <button className="task-counter-btn" onClick={() => handleLog(task, -1)}
                         disabled={(task.completions?.[dateStr] || 0) <= 0}>
                         <span>−</span>
                       </button>
                       <span className="task-counter-value">{task.completions?.[dateStr] || 0}</span>
-                      <button className="task-counter-btn" onClick={() => logCompletion(task.id, dateStr, 1)}>
+                      <button className="task-counter-btn" onClick={() => handleLog(task, 1)}>
                         <span>+</span>
                       </button>
                     </div>
@@ -267,7 +279,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-item-meta">
                       <span className="badge badge-limit">Ліміт</span>
                       <span style={{ color: exceeded ? 'var(--color-danger-light)' : 'var(--text-muted)' }}>
-                        За тиждень: {weeklyCompletions} / макс {limit}
+                        За тиждень: {weeklyCompletions} / макс {limit} {task.targetType === 'time' ? 'хв' : ''}
                       </span>
                       {exceeded && <span className="points-badge points-negative">{task.penaltyPoints}</span>}
                       {!exceeded && <span className="points-badge points-positive">+{task.rewardPoints}</span>}
@@ -285,7 +297,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-counter">
                       <button
                         className="task-counter-btn"
-                        onClick={() => logCompletion(task.id, dateStr, -1)}
+                        onClick={() => handleLog(task, -1)}
                         disabled={todayCompletions <= 0}
                       >
                         <Minus size={16} />
@@ -296,7 +308,7 @@ export default function TodayView({ tasks, logCompletion }) {
                       <span className="task-counter-target">сьог.</span>
                       <button
                         className="task-counter-btn"
-                        onClick={() => logCompletion(task.id, dateStr, 1)}
+                        onClick={() => handleLog(task, 1)}
                       >
                         <Plus size={16} />
                       </button>

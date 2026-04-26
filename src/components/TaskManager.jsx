@@ -11,6 +11,7 @@ const emptyTask = {
   icon: 'Star',
   category: "Здоров'я",
   enabled: true,
+  targetType: 'count',
   target: 1,
   rewardPoints: 1,
   penaltyPoints: 0,
@@ -76,7 +77,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
   const addBonusTier = () => {
     setFormData(prev => ({
       ...prev,
-      bonusTiers: [...(prev.bonusTiers || []), { threshold: prev.target + 1, points: 1 }],
+      bonusTiers: [...(prev.bonusTiers || []), { threshold: prev.target + (prev.targetType === 'time' ? 15 : 1), points: 1 }],
     }));
   };
 
@@ -164,7 +165,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                     TASK_TYPES.find(t => t.value === task.type)?.label || task.type
                   }</span></td>
                   <td style={{ color: 'var(--text-secondary)' }}>{task.category}</td>
-                  <td>{task.target}</td>
+                  <td>{task.target} {task.targetType === 'time' ? 'хв' : ''}</td>
                   <td><span className="points-badge points-positive">+{task.rewardPoints}</span></td>
                   <td>
                     {task.penaltyPoints < 0 ? (
@@ -176,7 +177,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {task.bonusTiers.map((tier, i) => (
                           <span key={i} className="points-badge points-positive" style={{ fontSize: 10 }}>
-                            {tier.threshold}×→+{tier.points}
+                            {tier.threshold}{task.targetType === 'time' ? 'хв' : '×'}→+{tier.points}
                           </span>
                         ))}
                       </div>
@@ -292,18 +293,32 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                 </div>
 
                 <div className="form-row">
-                  <div className="form-group">
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <label className="form-label" style={{ marginBottom: 0 }}>Вимірювання</label>
+                    </div>
+                    <div className="target-type-toggle" style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 8, padding: 4 }}>
+                      <button type="button" className={`btn btn-sm ${formData.targetType !== 'time' ? 'btn-primary' : ''}`} style={{ flex: 1, background: formData.targetType !== 'time' ? 'var(--color-primary)' : 'transparent', border: 'none', color: formData.targetType !== 'time' ? 'white' : 'var(--text-muted)' }} onClick={() => setFormData({...formData, targetType: 'count'})}>Кількість</button>
+                      <button type="button" className={`btn btn-sm ${formData.targetType === 'time' ? 'btn-primary' : ''}`} style={{ flex: 1, background: formData.targetType === 'time' ? 'var(--color-primary)' : 'transparent', border: 'none', color: formData.targetType === 'time' ? 'white' : 'var(--text-muted)' }} onClick={() => setFormData({...formData, targetType: 'time'})}>Час (хв)</button>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1 }}>
                     <label className="form-label">
-                      {formData.type === 'limit' ? 'Ліміт (макс. на тиждень)' : `Таргет (${formData.type === 'daily' ? 'на день' : formData.type === 'weekly' ? 'на тиждень' : formData.type === 'monthly' ? 'на місяць' : 'разів'})`}
+                      {formData.targetType === 'time' ? 'Таргет (хвилин)' : formData.type === 'limit' ? 'Ліміт (макс. на тиждень)' : `Таргет (${formData.type === 'daily' ? 'на день' : formData.type === 'weekly' ? 'на тиждень' : formData.type === 'monthly' ? 'на місяць' : 'разів'})`}
                     </label>
                     <input
                       className="form-input"
                       type="number"
                       min="1"
+                      step={formData.targetType === 'time' ? "5" : "1"}
                       value={formData.target}
                       onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
                     />
                   </div>
+                </div>
+
+                <div className="form-row">
 
                   <div className="form-group">
                     <label className="form-label">
@@ -362,7 +377,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                         onChange={(e) => updateBonusTier(i, 'threshold', e.target.value)}
                         style={{ width: 70 }}
                       />
-                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>→</span>
+                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>{formData.targetType === 'time' ? 'хв →' : '→'}</span>
                       <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>+</span>
                       <input
                         className="form-input"
