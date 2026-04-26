@@ -1,6 +1,7 @@
 import React from 'react';
 import { Minus, Plus } from 'lucide-react';
 import DynamicIcon from './DynamicIcon';
+import { formatTime, formatTarget } from '../utils/formatters';
 
 export default function TaskItem({ task, dateStr, onLog }) {
   const completions = task.completions?.[dateStr] || 0;
@@ -71,9 +72,9 @@ export default function TaskItem({ task, dateStr, onLog }) {
             <Minus size={16} />
           </button>
           <span className="task-counter-value" style={isLimit && completions > target ? { color: 'var(--color-danger)' } : {}}>
-            {completions}
+            {task.targetType === 'time' ? formatTime(completions) : completions}
           </span>
-          <span className="task-counter-target">{isLimit ? `макс ${target}` : `/ ${target}`} {task.targetType === 'time' ? 'хв' : ''}</span>
+          <span className="task-counter-target">{isLimit ? `макс ${formatTarget(target, task.targetType)}` : `/ ${formatTarget(target, task.targetType)}`}</span>
           <button
             className="task-counter-btn"
             onClick={() => {

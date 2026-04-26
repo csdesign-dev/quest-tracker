@@ -4,6 +4,7 @@ import { CATEGORIES, TASK_TYPES, ICON_OPTIONS } from '../data/defaultTasks';
 import DynamicIcon from './DynamicIcon';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
+import { formatTime, formatTarget } from '../utils/formatters';
 
 const emptyTask = {
   name: '',
@@ -165,7 +166,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                     TASK_TYPES.find(t => t.value === task.type)?.label || task.type
                   }</span></td>
                   <td style={{ color: 'var(--text-secondary)' }}>{task.category}</td>
-                  <td>{task.target} {task.targetType === 'time' ? 'хв' : ''}</td>
+                  <td>{formatTarget(task.target, task.targetType)}</td>
                   <td><span className="points-badge points-positive">+{task.rewardPoints}</span></td>
                   <td>
                     {task.penaltyPoints < 0 ? (
@@ -177,7 +178,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {task.bonusTiers.map((tier, i) => (
                           <span key={i} className="points-badge points-positive" style={{ fontSize: 10 }}>
-                            {tier.threshold}{task.targetType === 'time' ? 'хв' : '×'}→+{tier.points}
+                            {formatTarget(tier.threshold, task.targetType)}{task.targetType === 'time' ? ' →' : '× →'} +{tier.points}
                           </span>
                         ))}
                       </div>
@@ -298,8 +299,8 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                       <label className="form-label" style={{ marginBottom: 0 }}>Вимірювання</label>
                     </div>
                     <div className="target-type-toggle" style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 8, padding: 4 }}>
-                      <button type="button" className={`btn btn-sm ${formData.targetType !== 'time' ? 'btn-primary' : ''}`} style={{ flex: 1, background: formData.targetType !== 'time' ? 'var(--color-primary)' : 'transparent', border: 'none', color: formData.targetType !== 'time' ? 'white' : 'var(--text-muted)' }} onClick={() => setFormData({...formData, targetType: 'count'})}>Кількість</button>
-                      <button type="button" className={`btn btn-sm ${formData.targetType === 'time' ? 'btn-primary' : ''}`} style={{ flex: 1, background: formData.targetType === 'time' ? 'var(--color-primary)' : 'transparent', border: 'none', color: formData.targetType === 'time' ? 'white' : 'var(--text-muted)' }} onClick={() => setFormData({...formData, targetType: 'time'})}>Час (хв)</button>
+                      <button type="button" className={`btn btn-sm ${formData.targetType !== 'time' ? 'btn-primary' : ''}`} style={{ flex: 1, background: formData.targetType !== 'time' ? 'var(--color-primary)' : 'transparent', border: 'none', color: formData.targetType !== 'time' ? 'white' : 'var(--text-muted)' }} onClick={() => setFormData({...formData, targetType: 'count', target: formData.targetType === 'time' ? 1 : formData.target})}>Кількість</button>
+                      <button type="button" className={`btn btn-sm ${formData.targetType === 'time' ? 'btn-primary' : ''}`} style={{ flex: 1, background: formData.targetType === 'time' ? 'var(--color-primary)' : 'transparent', border: 'none', color: formData.targetType === 'time' ? 'white' : 'var(--text-muted)' }} onClick={() => setFormData({...formData, targetType: 'time', target: formData.targetType !== 'time' ? 15 : formData.target})}>Час</button>
                     </div>
                   </div>
 
@@ -377,7 +378,9 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                         onChange={(e) => updateBonusTier(i, 'threshold', e.target.value)}
                         style={{ width: 70 }}
                       />
-                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>{formData.targetType === 'time' ? 'хв →' : '→'}</span>
+                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                        {formData.targetType === 'time' ? 'хв →' : '→'}
+                      </span>
                       <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>+</span>
                       <input
                         className="form-input"

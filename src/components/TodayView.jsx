@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Calendar, Minus, Plus } from 'lucide-react';
 import TaskItem from './TaskItem';
 import DynamicIcon from './DynamicIcon';
 import { getCompletionsInRange } from '../utils/scoring';
+import { formatTime, formatTarget } from '../utils/formatters';
 
 export default function TodayView({ tasks, logCompletion }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -141,7 +142,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-item-name">{task.name}</div>
                     <div className="task-item-meta">
                       <span className="badge badge-weekly">Тижнева</span>
-                      <span>За тиждень: {weeklyCompletions} / {task.target} {task.targetType === 'time' ? 'хв' : ''}</span>
+                      <span>За тиждень: {task.targetType === 'time' ? formatTime(weeklyCompletions) : weeklyCompletions} / {formatTarget(task.target, task.targetType)}</span>
                       {task.rewardPoints > 0 && <span className="points-badge points-positive">+{task.rewardPoints}</span>}
                       {task.penaltyPoints < 0 && <span className="points-badge points-negative">{task.penaltyPoints}</span>}
                     </div>
@@ -158,7 +159,7 @@ export default function TodayView({ tasks, logCompletion }) {
                         {task.bonusTiers.map((tier, i) => (
                           <span key={i} className={`points-badge ${weeklyCompletions >= tier.threshold ? 'points-positive' : ''}`}
                             style={{ opacity: weeklyCompletions >= tier.threshold ? 1 : 0.5 }}>
-                            {tier.threshold}{task.targetType === 'time' ? 'хв' : '×'} → +{tier.points}
+                            {formatTarget(tier.threshold, task.targetType)}{task.targetType === 'time' ? ' →' : '× →'} +{tier.points}
                           </span>
                         ))}
                       </div>
@@ -173,7 +174,7 @@ export default function TodayView({ tasks, logCompletion }) {
                       >
                         <Minus size={16} />
                       </button>
-                      <span className="task-counter-value">{todayCompletions}</span>
+                      <span className="task-counter-value">{task.targetType === 'time' ? formatTime(todayCompletions) : todayCompletions}</span>
                       <span className="task-counter-target">сьог.</span>
                       <button
                         className="task-counter-btn"
@@ -209,7 +210,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-item-name">{task.name}</div>
                     <div className="task-item-meta">
                       <span className="badge badge-monthly">Місячна</span>
-                      <span>Виконано: {monthlyCompletions} / {task.target} {task.targetType === 'time' ? 'хв' : ''}</span>
+                      <span>Виконано: {task.targetType === 'time' ? formatTime(monthlyCompletions) : monthlyCompletions} / {formatTarget(task.target, task.targetType)}</span>
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <div className="progress-bar-container">
@@ -226,7 +227,7 @@ export default function TodayView({ tasks, logCompletion }) {
                         disabled={(task.completions?.[dateStr] || 0) <= 0}>
                         <span>−</span>
                       </button>
-                      <span className="task-counter-value">{task.completions?.[dateStr] || 0}</span>
+                      <span className="task-counter-value">{task.targetType === 'time' ? formatTime(task.completions?.[dateStr] || 0) : (task.completions?.[dateStr] || 0)}</span>
                       <button className="task-counter-btn" onClick={() => handleLog(task, 1)}>
                         <span>+</span>
                       </button>
@@ -279,7 +280,7 @@ export default function TodayView({ tasks, logCompletion }) {
                     <div className="task-item-meta">
                       <span className="badge badge-limit">Ліміт</span>
                       <span style={{ color: exceeded ? 'var(--color-danger-light)' : 'var(--text-muted)' }}>
-                        За тиждень: {weeklyCompletions} / макс {limit} {task.targetType === 'time' ? 'хв' : ''}
+                        За тиждень: {task.targetType === 'time' ? formatTime(weeklyCompletions) : weeklyCompletions} / макс {formatTarget(limit, task.targetType)}
                       </span>
                       {exceeded && <span className="points-badge points-negative">{task.penaltyPoints}</span>}
                       {!exceeded && <span className="points-badge points-positive">+{task.rewardPoints}</span>}
@@ -303,7 +304,7 @@ export default function TodayView({ tasks, logCompletion }) {
                         <Minus size={16} />
                       </button>
                       <span className="task-counter-value" style={exceeded ? { color: 'var(--color-danger)' } : {}}>
-                        {todayCompletions}
+                        {task.targetType === 'time' ? formatTime(todayCompletions) : todayCompletions}
                       </span>
                       <span className="task-counter-target">сьог.</span>
                       <button
