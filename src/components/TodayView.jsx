@@ -13,17 +13,29 @@ export default function TodayView({ tasks, logCompletion }) {
   const dateLabel = format(selectedDate, "EEEE, d MMMM yyyy", { locale: uk });
   const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
 
-  const dailyTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'daily');
-  const weeklyTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'weekly');
-  const monthlyTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'monthly');
-  const bonusTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'bonus');
-  const deadlineTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'deadline');
-  const limitTasks = tasks.filter(t => t.enabled && t.status !== 'paused' && t.type === 'limit');
-
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   const monthStart = startOfMonth(selectedDate);
   const monthEnd = endOfMonth(selectedDate);
+
+  const isValidForDate = (task, dateToCheck) => {
+    if (!task.enabled || task.status === 'paused') return false;
+    if (!task.createdAt) return true;
+    return dateStr >= task.createdAt; // Both are 'yyyy-MM-dd' strings, safe to compare
+  };
+
+  const isValidForPeriod = (task, periodEnd) => {
+    if (!task.enabled || task.status === 'paused') return false;
+    if (!task.createdAt) return true;
+    return format(periodEnd, 'yyyy-MM-dd') >= task.createdAt;
+  };
+
+  const dailyTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'daily');
+  const weeklyTasks = tasks.filter(t => isValidForPeriod(t, weekEnd) && t.type === 'weekly');
+  const monthlyTasks = tasks.filter(t => isValidForPeriod(t, monthEnd) && t.type === 'monthly');
+  const bonusTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'bonus');
+  const deadlineTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'deadline');
+  const limitTasks = tasks.filter(t => isValidForPeriod(t, weekEnd) && t.type === 'limit');
 
   // Generate week days for mini calendar
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
