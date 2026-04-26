@@ -173,6 +173,7 @@ export const TASK_TYPES = [
   { value: 'challenge', label: 'Челлендж', color: '#fca5a5' },
   { value: 'bonus', label: 'Бонусна', color: '#c084fc' },
   { value: 'limit', label: 'Ліміт', color: '#fb923c' },
+  { value: 'draft', label: 'Вхідні', color: '#9ca3af' },
 ];
 
 export const ICON_OPTIONS = [

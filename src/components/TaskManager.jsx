@@ -36,6 +36,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
   const [editingTask, setEditingTask] = useState(null);
   const [formData, setFormData] = useState({ ...emptyTask });
   const [filterType, setFilterType] = useState('all');
+  const [quickAddText, setQuickAddText] = useState('');
 
   const handleTogglePause = (task) => {
     const isPausing = task.status !== 'paused';
@@ -108,6 +109,22 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
     setEditingTask(null);
   };
 
+  const handleQuickAdd = () => {
+    if (!quickAddText.trim()) return;
+    addTask({
+      ...emptyTask,
+      name: quickAddText.trim(),
+      type: 'draft',
+      category: 'Інше',
+      icon: 'Star',
+      rewardPoints: 0,
+      penaltyPoints: 0,
+      targetType: 'count',
+      target: 1
+    });
+    setQuickAddText('');
+  };
+
   const handleDeleteConfirm = (id) => {
     deleteTask(id);
     setConfirmDelete(null);
@@ -151,6 +168,20 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
         <button className="btn btn-primary" onClick={openCreateForm}>
           <Plus size={18} /> Нова задача
         </button>
+
+        <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 200, maxWidth: 400 }}>
+          <input 
+            type="text" 
+            className="form-input" 
+            placeholder="Швидко записати ідею..." 
+            value={quickAddText}
+            onChange={(e) => setQuickAddText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+          />
+          <button className="btn btn-secondary" onClick={handleQuickAdd} disabled={!quickAddText.trim()}>
+            Додати
+          </button>
+        </div>
 
         <select className="form-select" style={{ width: 'auto', minWidth: 140 }}
           value={filterType} onChange={(e) => setFilterType(e.target.value)}>
