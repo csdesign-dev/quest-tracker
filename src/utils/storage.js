@@ -94,6 +94,89 @@ export function saveTasks(tasks, profileId) {
   localStorage.setItem(`quest-tracker-tasks-${profileId}`, JSON.stringify(tasks));
 }
 
+// ==================== AUTO-BACKUP ====================
+
+const MAX_BACKUPS = 3;
+
+/**
+ * Створює щоденний бекап задач.
+ * Зберігає до MAX_BACKUPS останніх бекапів.
+ * Повертає true якщо бекап був створений, false якщо вже існує на сьогодні.
+ */
+export function createDailyBackup(tasks, profileId) {
+  if (!profileId || !tasks || tasks.length === 0) return false;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const backupKey = `quest-tracker-backup-${profileId}`;
+
+  let backups = [];
+  try {
+    const raw = localStorage.getItem(backupKey);
+    if (raw) backups = JSON.parse(raw);
+  } catch { backups = []; }
+
+  // Не створювати бекап, якщо вже є на сьогодні
+  if (backups.length > 0 && backups[backups.length - 1].date === today) {
+    return false;
+  }
+
+  backups.push({
+    date: today,
+    tasks: JSON.parse(JSON.stringify(tasks)),
+  });
+
+  // Залишити тільки останні MAX_BACKUPS
+  if (backups.length > MAX_BACKUPS) {
+    backups = backups.slice(-MAX_BACKUPS);
+  }
+
+  localStorage.setItem(backupKey, JSON.stringify(backups));
+  return true;
+}
+
+/**
+ * Відновлює задачі з останнього бекапу.
+ * Повертає масив задач або null.
+ */
+export function restoreFromBackup(profileId) {
+  if (!profileId) return null;
+
+  const backupKey = `quest-tracker-backup-${profileId}`;
+  try {
+    const raw = localStorage.getItem(backupKey);
+    if (!raw) return null;
+
+    const backups = JSON.parse(raw);
+    if (!Array.isArray(backups) || backups.length === 0) return null;
+
+    const latest = backups[backups.length - 1];
+    if (latest && Array.isArray(latest.tasks) && latest.tasks.length > 0) {
+      return latest.tasks;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Повертає список доступних бекапів (дата + к-сть задач).
+ */
+export function getBackupList(profileId) {
+  if (!profileId) return [];
+
+  const backupKey = `quest-tracker-backup-${profileId}`;
+  try {
+    const raw = localStorage.getItem(backupKey);
+    if (!raw) return [];
+
+    const backups = JSON.parse(raw);
+    return backups.map(b => ({ date: b.date, taskCount: b.tasks?.length || 0 }));
+  } catch {
+    return [];
+  }
+}
+
 // ==================== MIGRATION ====================
 // Migrate old single-user data to the first profile
 

@@ -38,7 +38,7 @@ export default function TaskItem({ task, dateStr, onLog }) {
             task.type === 'daily' ? 'Щоденна' :
             task.type === 'weekly' ? 'Тижнева' :
             task.type === 'monthly' ? 'Місячна' :
-            task.type === 'deadline' ? 'Дедлайн' :
+            task.type === 'challenge' ? 'Челлендж' :
             task.type === 'limit' ? 'Ліміт' : 'Бонус'
           }</span>
           <span>

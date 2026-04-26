@@ -8,7 +8,8 @@ import {
 import {
   loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
   loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId,
-  createProfile, deleteProfile, migrateOldData
+  createProfile, deleteProfile, migrateOldData,
+  createDailyBackup, restoreFromBackup
 } from './utils/storage';
 import { getAllPeriodScores } from './utils/scoring';
 import { defaultTasks } from './data/defaultTasks';
@@ -89,10 +90,30 @@ export default function App() {
   // Reload tasks when profile or session changes
   useEffect(() => {
     if (currentProfileId) {
-      const saved = loadTasks(currentProfileId);
+      let saved = loadTasks(currentProfileId);
+      // Захист: якщо дані порожні або пошкоджені — відновити з бекапу
+      if (!saved || !Array.isArray(saved) || saved.length === 0) {
+        const backup = restoreFromBackup(currentProfileId);
+        if (backup && backup.length > 0) {
+          console.log('[Quest Tracker] Дані відновлено з резервної копії!');
+          saved = backup;
+          saveTasks(saved, currentProfileId);
+        }
+      }
       setTasks(saved || defaultTasks);
     }
   }, [currentProfileId]);
+
+  // Автоматичний щоденний бекап
+  useEffect(() => {
+    if (currentProfileId && tasks && tasks.length > 0) {
+      // Не бекапити defaultTasks (тільки реальні дані)
+      const isDefault = tasks.length === defaultTasks.length && tasks.every((t, i) => t.name === defaultTasks[i]?.name && Object.keys(t.completions || {}).length === 0);
+      if (!isDefault) {
+        createDailyBackup(tasks, currentProfileId);
+      }
+    }
+  }, [currentProfileId, tasks]);
 
   // Save on change
   useEffect(() => {
