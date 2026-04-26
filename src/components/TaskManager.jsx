@@ -26,6 +26,8 @@ const emptyTask = {
   rewardStrategy: 'per_completion',
   durationDays: 30,
   durationWeeks: 4,
+  finalBonusPoints: 10,
+  finalBonusThreshold: 10,
   completions: {},
 };
 
@@ -464,6 +466,34 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                         <option value="end_only">Лише в кінці за весь челлендж</option>
                       </select>
                     </div>
+
+                    {formData.rewardStrategy === 'per_completion' && (
+                      <div style={{ marginTop: 12, padding: 12, background: 'rgba(0,0,0,0.1)', borderRadius: 8 }}>
+                        <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>Фінальний бонус (за загальний успіх)</div>
+                        <div className="form-row">
+                          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 11 }}>Скільки разів треба зробити?</label>
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="1"
+                              value={formData.finalBonusThreshold || 10}
+                              onChange={(e) => setFormData({ ...formData, finalBonusThreshold: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: 11 }}>Скільки балів дати?</label>
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="0"
+                              value={formData.finalBonusPoints || 0}
+                              onChange={(e) => setFormData({ ...formData, finalBonusPoints: Number(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

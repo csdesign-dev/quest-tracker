@@ -199,6 +199,10 @@ function scoreChallenge(task) {
     if (isExpired && totalCompletions < target) {
       score += (task.penaltyPoints || 0);
     }
+    const finalBonusThreshold = task.finalBonusThreshold || target;
+    if (totalCompletions >= finalBonusThreshold) {
+      score += (task.finalBonusPoints || 0);
+    }
   } else {
     // end_only
     if (totalCompletions >= target) {
@@ -426,7 +430,8 @@ export function calculateMaxScore(task, startDate, endDate) {
         let target = task.target || 1;
         if (task.challengeType === 'daily_streak') target = (task.durationDays || 30) * target;
         if (task.challengeType === 'weekly_recurrent') target = (task.durationWeeks || 4) * target;
-        return target * (task.rewardPoints || 0);
+        const maxFinalBonus = task.finalBonusPoints || 0;
+        return (target * (task.rewardPoints || 0)) + maxFinalBonus;
       }
       return task.rewardPoints || 0;
     }
