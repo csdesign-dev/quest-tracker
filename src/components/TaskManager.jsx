@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { formatTime, formatTarget } from '../utils/formatters';
 
+const timeOptions = Array.from({ length: 120 }, (_, i) => (i + 1) * 5);
+
 const emptyTask = {
   name: '',
   type: 'daily',
@@ -306,16 +308,28 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
 
                   <div className="form-group" style={{ flex: 1 }}>
                     <label className="form-label">
-                      {formData.targetType === 'time' ? 'Таргет (хвилин)' : formData.type === 'limit' ? 'Ліміт (макс. на тиждень)' : `Таргет (${formData.type === 'daily' ? 'на день' : formData.type === 'weekly' ? 'на тиждень' : formData.type === 'monthly' ? 'на місяць' : 'разів'})`}
+                      {formData.targetType === 'time' ? 'Таргет' : formData.type === 'limit' ? 'Ліміт (макс. на тиждень)' : `Таргет (${formData.type === 'daily' ? 'на день' : formData.type === 'weekly' ? 'на тиждень' : formData.type === 'monthly' ? 'на місяць' : 'разів'})`}
                     </label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      min="1"
-                      step={formData.targetType === 'time' ? "5" : "1"}
-                      value={formData.target}
-                      onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
-                    />
+                    {formData.targetType === 'time' ? (
+                      <select
+                        className="form-select"
+                        value={formData.target}
+                        onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
+                      >
+                        {timeOptions.map(mins => (
+                          <option key={mins} value={mins}>{formatTime(mins)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={formData.target}
+                        onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -370,17 +384,30 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
                       <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         Якщо ≥
                       </span>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min="1"
-                        value={tier.threshold}
-                        onChange={(e) => updateBonusTier(i, 'threshold', e.target.value)}
-                        style={{ width: 70 }}
-                      />
-                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                        {formData.targetType === 'time' ? 'хв →' : '→'}
-                      </span>
+                        {formData.targetType === 'time' ? (
+                          <select
+                            className="form-select"
+                            value={tier.threshold}
+                            onChange={(e) => updateBonusTier(i, 'threshold', Number(e.target.value))}
+                            style={{ width: 110 }}
+                          >
+                            {timeOptions.map(mins => (
+                              <option key={mins} value={mins}>{formatTime(mins)}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            className="form-input"
+                            type="number"
+                            min="1"
+                            value={tier.threshold}
+                            onChange={(e) => updateBonusTier(i, 'threshold', Number(e.target.value))}
+                            style={{ width: 70 }}
+                          />
+                        )}
+                        <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                          {formData.targetType === 'time' ? '→' : '→'}
+                        </span>
                       <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>+</span>
                       <input
                         className="form-input"
