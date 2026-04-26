@@ -92,8 +92,7 @@ export default function AuthScreen({ onLocalLogin }) {
   };
 
   const handleFinish = () => {
-    // For now, fall back to local profile system
-    if (onLocalLogin) onLocalLogin(email);
+    if (onLocalLogin) onLocalLogin('');
   };
 
   return (

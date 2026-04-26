@@ -67,7 +67,23 @@ export function loadTasks(profileId) {
   if (!profileId) return null;
   try {
     const data = localStorage.getItem(`quest-tracker-tasks-${profileId}`);
-    return data ? JSON.parse(data) : null;
+    if (data) {
+      let tasks = JSON.parse(data);
+      // Migrate deadline to challenge automatically
+      let migrated = false;
+      tasks = tasks.map(t => {
+        if (t.type === 'deadline') {
+          migrated = true;
+          return { ...t, type: 'challenge', challengeType: 'date', rewardStrategy: 'end_only' };
+        }
+        return t;
+      });
+      if (migrated) {
+        localStorage.setItem(`quest-tracker-tasks-${profileId}`, JSON.stringify(tasks));
+      }
+      return tasks;
+    }
+    return null;
   } catch {
     return null;
   }

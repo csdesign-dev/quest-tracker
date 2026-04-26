@@ -36,6 +36,7 @@ export default function App() {
   // Supabase Auth State
   const [session, setSession] = useState(null);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [showAuthScreen, setShowAuthScreen] = useState(true);
 
   useEffect(() => {
     if (!supabase) {
@@ -195,22 +196,42 @@ export default function App() {
   }
 
   if (!isLoggedIn) {
-    if (supabase) {
+    if (supabase && showAuthScreen) {
       return (
         <AuthScreen onLocalLogin={(email) => {
-          // Fallback to local profile creation if they requested local login
-          const name = email ? email.split('@')[0] : 'Профіль';
-          handleCreateProfile(name, '#7c3aed');
+          if (email) {
+            const name = email.split('@')[0];
+            handleCreateProfile(name, '#7c3aed');
+          } else {
+            setShowAuthScreen(false);
+          }
         }} />
       );
     }
     return (
-      <ProfileSelector
-        profiles={profiles}
-        onSelect={handleSelectProfile}
-        onCreate={handleCreateProfile}
-        onDelete={handleDeleteProfile}
-      />
+      <div style={{ position: 'relative' }}>
+        {supabase && (
+          <button 
+            className="btn btn-secondary btn-sm" 
+            style={{ position: 'absolute', top: 16, right: 16, zIndex: 100 }}
+            onClick={() => setShowAuthScreen(true)}
+          >
+            ← Вхід через Email
+          </button>
+        )}
+        <ProfileSelector
+          profiles={profiles}
+          onSelect={id => {
+            handleSelectProfile(id);
+            setShowAuthScreen(true);
+          }}
+          onCreate={(name, color) => {
+            handleCreateProfile(name, color);
+            setShowAuthScreen(true);
+          }}
+          onDelete={handleDeleteProfile}
+        />
+      </div>
     );
   }
 
