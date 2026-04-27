@@ -69,68 +69,83 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
   const [sortDir, setSortDir] = useState('asc');
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Drag and Drop state
+  // Drag and Drop — Pointer Events (працює в Safari, Chrome, Firefox)
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverTaskId, setDragOverTaskId] = useState(null);
-  const dragSrcIdx = useRef(null);
+  const ghostRef = useRef(null);
+  const draggingIdRef = useRef(null);
 
   const canDragAndDrop = !sortKey && filterType === 'all' && filterCategory === 'all';
 
-  // Мишача DnD через dataTransfer (без виділення тексту)
-  const handleDragStart = useCallback((e, taskId) => {
-    if (!canDragAndDrop) { e.preventDefault(); return; }
+  const startDrag = useCallback((e, taskId) => {
+    if (!canDragAndDrop) return;
+    e.preventDefault(); // забороняємо виділення тексту
 
-    // Кастомне зображення ghost — показуємо піллу із назвою
+    draggingIdRef.current = taskId;
+    setDraggedTaskId(taskId);
+
+    // Створюємо ghost-елемент
     const task = tasks.find(t => t.id === taskId);
     const ghost = document.createElement('div');
-    ghost.textContent = task?.name || 'Задача';
+    ghost.textContent = '\u2630  ' + (task?.name || 'Задача');
     ghost.style.cssText = [
-      'position:fixed', 'top:-200px', 'left:-200px',
-      'background:rgba(124,58,237,0.92)', 'color:#fff',
-      'padding:6px 16px', 'border-radius:8px',
-      'font-size:13px', 'font-weight:600',
-      'pointer-events:none', 'z-index:9999',
-      'box-shadow:0 4px 20px rgba(0,0,0,0.4)',
+      'position:fixed',
+      `top:${(e.clientY ?? e.touches?.[0]?.clientY ?? 0) - 20}px`,
+      `left:${(e.clientX ?? e.touches?.[0]?.clientX ?? 0) + 12}px`,
+      'background:rgba(124,58,237,0.95)',
+      'color:#fff',
+      'padding:6px 14px',
+      'border-radius:8px',
+      'font-size:13px',
+      'font-weight:600',
+      'pointer-events:none',
+      'z-index:99999',
+      'box-shadow:0 4px 24px rgba(0,0,0,0.5)',
+      'white-space:nowrap',
+      'user-select:none',
     ].join(';');
     document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, 16, 16);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', taskId);
-    setTimeout(() => document.body.removeChild(ghost), 0);
+    ghostRef.current = ghost;
 
-    setDraggedTaskId(taskId);
-    dragSrcIdx.current = tasks.findIndex(t => t.id === taskId);
-  }, [canDragAndDrop, tasks]);
+    const onMove = (ev) => {
+      const cx = ev.clientX ?? ev.touches?.[0]?.clientX ?? 0;
+      const cy = ev.clientY ?? ev.touches?.[0]?.clientY ?? 0;
+      // Рухаємо ghost
+      ghost.style.left = `${cx + 12}px`;
+      ghost.style.top = `${cy - 20}px`;
+      // Знаходимо рядок під курсором
+      ghost.style.display = 'none';
+      const el = document.elementFromPoint(cx, cy);
+      ghost.style.display = '';
+      const tr = el?.closest('tr[data-task-id]');
+      setDragOverTaskId(tr ? tr.getAttribute('data-task-id') : null);
+    };
 
-  const handleDragOver = useCallback((e, taskId) => {
-    e.preventDefault();
-    if (!canDragAndDrop) return;
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverTaskId(taskId);
-  }, [canDragAndDrop]);
-
-  const handleDragLeave = useCallback((e) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
+    const onEnd = (ev) => {
+      const cx = ev.clientX ?? ev.changedTouches?.[0]?.clientX ?? 0;
+      const cy = ev.clientY ?? ev.changedTouches?.[0]?.clientY ?? 0;
+      // Видаляємо ghost
+      if (ghostRef.current) { document.body.removeChild(ghostRef.current); ghostRef.current = null; }
+      // Визначаємо місце падіння
+      const el = document.elementFromPoint(cx, cy);
+      const tr = el?.closest('tr[data-task-id]');
+      const targetId = tr ? tr.getAttribute('data-task-id') : null;
+      const srcId = draggingIdRef.current;
+      setDraggedTaskId(null);
       setDragOverTaskId(null);
-    }
-  }, []);
+      draggingIdRef.current = null;
+      if (targetId && targetId !== srcId) {
+        const srcIdx = tasks.findIndex(t => t.id === srcId);
+        const tgtIdx = tasks.findIndex(t => t.id === targetId);
+        if (srcIdx !== -1 && tgtIdx !== -1) reorderTasks(srcIdx, tgtIdx);
+      }
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+    };
 
-  const handleDrop = useCallback((e, targetTaskId) => {
-    e.preventDefault();
-    const srcId = draggedTaskId;
-    setDraggedTaskId(null);
-    setDragOverTaskId(null);
-    if (!canDragAndDrop || !srcId || srcId === targetTaskId) return;
-    const srcIdx = tasks.findIndex(t => t.id === srcId);
-    const tgtIdx = tasks.findIndex(t => t.id === targetTaskId);
-    if (srcIdx === -1 || tgtIdx === -1) return;
-    reorderTasks(srcIdx, tgtIdx);
-  }, [canDragAndDrop, draggedTaskId, tasks, reorderTasks]);
-
-  const handleDragEnd = useCallback(() => {
-    setDraggedTaskId(null);
-    setDragOverTaskId(null);
-  }, []);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+  }, [canDragAndDrop, tasks, reorderTasks]);
 
   let filteredTasks = tasks.filter(t => {
     if (filterType !== 'all' && t.type !== filterType) return false;
@@ -347,21 +362,19 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
               {filteredTasks.map((task) => (
                 <tr 
                   key={task.id}
+                  data-task-id={task.id}
                   style={{ 
                     opacity: task.status === 'paused' ? 0.5 : (draggedTaskId === task.id ? 0.3 : 1),
                     backgroundColor: dragOverTaskId === task.id ? 'var(--bg-card-hover)' : '',
                     borderTop: dragOverTaskId === task.id ? '2px solid var(--color-primary)' : '',
                     transition: 'background-color 0.15s ease',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
                   }}
-                  onDragOver={(e) => handleDragOver(e, task.id)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, task.id)}
                 >
-                  {/* Grip handle */}
+                  {/* Grip handle — Pointer Events (Safari + Chrome + Firefox) */}
                   <td
-                    draggable={canDragAndDrop}
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={handleDragEnd}
+                    onPointerDown={(e) => startDrag(e, task.id)}
                     style={{
                       width: 36,
                       textAlign: 'center',
@@ -370,6 +383,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                       opacity: canDragAndDrop ? 1 : 0.35,
                       userSelect: 'none',
                       WebkitUserSelect: 'none',
+                      touchAction: 'none',
                     }}
                     title={canDragAndDrop ? 'Перетягни для зміни порядку' : 'Вимкні фільтри/сортування для DnD'}
                   >
