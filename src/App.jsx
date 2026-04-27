@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import {
   LayoutDashboard, CalendarCheck, BarChart3, ListTodo, Zap, Menu, X,
-  Download, Upload, LogOut, User, HelpCircle
+  Download, Upload, LogOut, User, HelpCircle, RefreshCw
 } from 'lucide-react';
 import {
   loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
@@ -11,6 +11,7 @@ import {
   createProfile, deleteProfile, migrateOldData,
   createDailyBackup, restoreFromBackup
 } from './utils/storage';
+import { pushData, pullData } from './utils/sync';
 import { getAllPeriodScores } from './utils/scoring';
 import { defaultTasks } from './data/defaultTasks';
 import TodayView from './components/TodayView';
@@ -33,6 +34,8 @@ export default function App() {
   const [activeProfileId, setActiveProfile] = useState(() => getActiveProfileId());
   const [activePage, setActivePage] = useState('today');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Supabase Auth State
   const [session, setSession] = useState(null);
@@ -101,6 +104,17 @@ export default function App() {
         }
       }
       setTasks(saved || defaultTasks);
+
+      // Cloud Sync Pull (Local-First)
+      const syncPull = async () => {
+        setIsSyncing(true);
+        const cloudTasks = await pullData(currentProfileId);
+        if (cloudTasks && Array.isArray(cloudTasks) && cloudTasks.length > 0) {
+          setTasks(cloudTasks); // Оновлюємо стейт, і він автоматично збережеться в localStorage
+        }
+        setIsSyncing(false);
+      };
+      syncPull();
     }
   }, [currentProfileId]);
 
@@ -115,10 +129,16 @@ export default function App() {
     }
   }, [currentProfileId, tasks]);
 
-  // Save on change
+  // Save on change and Push to Cloud
   useEffect(() => {
     if (currentProfileId) {
       saveTasks(tasks, currentProfileId);
+
+      // Не відправляти на сервер дефолтні задачі (тільки реальні дані)
+      const isDefault = tasks.length === defaultTasks.length && tasks.every((t, i) => t.name === defaultTasks[i]?.name && Object.keys(t.completions || {}).length === 0);
+      if (!isDefault) {
+        pushData(currentProfileId, tasks);
+      }
     }
   }, [tasks, currentProfileId]);
 
@@ -288,16 +308,17 @@ export default function App() {
         </div>
 
         {/* Active profile indicator */}
-        <div className="sidebar-profile" onClick={handleLogout} title="Змінити профіль">
+        <div className="sidebar-profile" onClick={handleLogout} title="Змінити профіль" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div className="sidebar-profile-avatar" style={{ background: activeProfile.color }}>
             <User size={16} color="white" />
           </div>
-          <div className="sidebar-profile-info">
+          <div className="sidebar-profile-info" style={{ flex: 1 }}>
             <span className="sidebar-profile-name">{activeProfile.name}</span>
             <span className="sidebar-profile-action">
               <LogOut size={12} /> Змінити
             </span>
           </div>
+          {isSyncing && <RefreshCw size={14} className="spin" style={{ color: 'var(--text-muted)' }} title="Синхронізація..." />}
         </div>
 
         <nav className="sidebar-nav">

@@ -171,3 +171,22 @@ CREATE INDEX idx_feedback_created ON public.feedback(created_at DESC);
 -- ============================================
 INSERT INTO public.promo_codes (code, is_free, max_uses)
 VALUES ('QUEST2026', true, 1000);
+
+-- ============================================
+-- Cloud Sync Table (Local-First Architecture)
+-- ============================================
+CREATE TABLE public.cloud_sync (
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  profile_id TEXT NOT NULL,
+  tasks_data JSONB NOT NULL DEFAULT '[]',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, profile_id)
+);
+
+ALTER TABLE public.cloud_sync ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own sync data"
+  ON public.cloud_sync
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
