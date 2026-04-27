@@ -69,9 +69,9 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
   const [sortDir, setSortDir] = useState('asc');
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Drag and Drop state
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
+  // Drag and Drop state — відслідковуємо по ID задачі, а не по index
+  const [draggedTaskId, setDraggedTaskId] = useState(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState(null);
 
   let filteredTasks = tasks.filter(t => {
     if (filterType !== 'all' && t.type !== filterType) return false;
@@ -83,10 +83,13 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
     filteredTasks = [...filteredTasks].sort((a, b) => {
       let aVal = a[sortKey] ?? '';
       let bVal = b[sortKey] ?? '';
-      // For status: active < paused
       if (sortKey === 'status') {
         aVal = a.status === 'paused' ? 1 : 0;
         bVal = b.status === 'paused' ? 1 : 0;
+        return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      // Числові поля (rewardPoints, penaltyPoints, target)
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
       }
       const cmp = String(aVal).localeCompare(String(bVal), 'uk');
@@ -94,43 +97,48 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
     });
   }
 
+  // Grip завжди видимий, але DnD вимикається якщо є фільтри або сортування (бо indices не збігаються)
   const canDragAndDrop = !sortKey && filterType === 'all' && filterCategory === 'all';
+  const showGrip = true; // завжди показуємо
 
-  const handleDragStart = (e, index) => {
+  const handleDragStart = (e, taskId) => {
     if (!canDragAndDrop) { e.preventDefault(); return; }
-    setDraggedIndex(index);
+    setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.setData('text/plain', taskId);
   };
 
-  const handleDragOver = (e, index) => {
+  const handleDragOver = (e, taskId) => {
     e.preventDefault();
     e.stopPropagation();
     if (!canDragAndDrop) return;
     e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
+    setDragOverTaskId(taskId);
   };
 
   const handleDragLeave = (e) => {
-    // Only clear if leaving the row entirely
     if (!e.currentTarget.contains(e.relatedTarget)) {
-      setDragOverIndex(null);
+      setDragOverTaskId(null);
     }
   };
 
-  const handleDrop = (e, targetIndex) => {
+  const handleDrop = (e, targetTaskId) => {
     e.preventDefault();
     e.stopPropagation();
-    const src = draggedIndex;
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    if (!canDragAndDrop || src === null || src === targetIndex) return;
-    reorderTasks(src, targetIndex);
+    const srcId = draggedTaskId;
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
+    if (!canDragAndDrop || !srcId || srcId === targetTaskId) return;
+    // Знаходимо реальні індекси в оригінальному масиві tasks
+    const srcIdx = tasks.findIndex(t => t.id === srcId);
+    const tgtIdx = tasks.findIndex(t => t.id === targetTaskId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    reorderTasks(srcIdx, tgtIdx);
   };
 
   const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
   };
 
   const handleSortHeader = (key) => {
@@ -301,12 +309,18 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                   onClick={() => handleSortHeader('category')}
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                 >Категорія <SortIcon col="category" /></th>
-                <th>Таргет</th>
+                <th
+                  onClick={() => handleSortHeader('target')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >Таргет <SortIcon col="target" /></th>
                 <th
                   onClick={() => handleSortHeader('rewardPoints')}
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                 >Нагорода <SortIcon col="rewardPoints" /></th>
-                <th>Штраф</th>
+                <th
+                  onClick={() => handleSortHeader('penaltyPoints')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >Штраф <SortIcon col="penaltyPoints" /></th>
                 <th>Бонуси</th>
                 <th
                   onClick={() => handleSortHeader('status')}
@@ -316,32 +330,33 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.map((task, index) => (
+              {filteredTasks.map((task) => (
                 <tr 
                   key={task.id}
                   style={{ 
-                    opacity: task.status === 'paused' ? 0.5 : (draggedIndex === index ? 0.3 : 1),
-                    backgroundColor: dragOverIndex === index ? 'var(--bg-card-hover)' : '',
-                    borderTop: dragOverIndex === index ? '2px solid var(--color-primary)' : '',
+                    opacity: task.status === 'paused' ? 0.5 : (draggedTaskId === task.id ? 0.3 : 1),
+                    backgroundColor: dragOverTaskId === task.id ? 'var(--bg-card-hover)' : '',
+                    borderTop: dragOverTaskId === task.id ? '2px solid var(--color-primary)' : '',
                     transition: 'background-color 0.15s ease',
                   }}
-                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragOver={(e) => handleDragOver(e, task.id)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, index)}
+                  onDrop={(e) => handleDrop(e, task.id)}
                 >
-                  {/* Grip handle — саме ця комірка draggable */}
+                  {/* Grip handle */}
                   <td
                     draggable={canDragAndDrop}
-                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragStart={(e) => handleDragStart(e, task.id)}
                     onDragEnd={handleDragEnd}
                     style={{ 
                       width: 36,
                       textAlign: 'center', 
-                      cursor: canDragAndDrop ? 'grab' : 'default', 
-                      color: canDragAndDrop ? 'var(--text-secondary)' : 'transparent',
+                      cursor: canDragAndDrop ? 'grab' : 'not-allowed',
+                      color: canDragAndDrop ? 'var(--text-secondary)' : 'var(--text-muted)',
+                      opacity: canDragAndDrop ? 1 : 0.35,
                       userSelect: 'none',
                     }}
-                    title={canDragAndDrop ? 'Перетягни для зміни порядку' : 'Вимкні фільтри для перетягування'}
+                    title={canDragAndDrop ? 'Перетягни для зміни порядку' : 'Вимкні фільтри/сортування для DnD'}
                   >
                     <GripVertical size={16} />
                   </td>
