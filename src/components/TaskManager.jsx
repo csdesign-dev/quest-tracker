@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Settings, X, Save, Copy, Pause, Play, GripVertical } from 'lucide-react';
 import { CATEGORIES, TASK_TYPES, ICON_OPTIONS } from '../data/defaultTasks';
 import DynamicIcon from './DynamicIcon';
@@ -69,9 +69,68 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
   const [sortDir, setSortDir] = useState('asc');
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Drag and Drop state — відслідковуємо по ID задачі, а не по index
+  // Drag and Drop state
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverTaskId, setDragOverTaskId] = useState(null);
+  const dragSrcIdx = useRef(null);
+
+  const canDragAndDrop = !sortKey && filterType === 'all' && filterCategory === 'all';
+
+  // Мишача DnD через dataTransfer (без виділення тексту)
+  const handleDragStart = useCallback((e, taskId) => {
+    if (!canDragAndDrop) { e.preventDefault(); return; }
+
+    // Кастомне зображення ghost — показуємо піллу із назвою
+    const task = tasks.find(t => t.id === taskId);
+    const ghost = document.createElement('div');
+    ghost.textContent = task?.name || 'Задача';
+    ghost.style.cssText = [
+      'position:fixed', 'top:-200px', 'left:-200px',
+      'background:rgba(124,58,237,0.92)', 'color:#fff',
+      'padding:6px 16px', 'border-radius:8px',
+      'font-size:13px', 'font-weight:600',
+      'pointer-events:none', 'z-index:9999',
+      'box-shadow:0 4px 20px rgba(0,0,0,0.4)',
+    ].join(';');
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 16, 16);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+    setTimeout(() => document.body.removeChild(ghost), 0);
+
+    setDraggedTaskId(taskId);
+    dragSrcIdx.current = tasks.findIndex(t => t.id === taskId);
+  }, [canDragAndDrop, tasks]);
+
+  const handleDragOver = useCallback((e, taskId) => {
+    e.preventDefault();
+    if (!canDragAndDrop) return;
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverTaskId(taskId);
+  }, [canDragAndDrop]);
+
+  const handleDragLeave = useCallback((e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverTaskId(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e, targetTaskId) => {
+    e.preventDefault();
+    const srcId = draggedTaskId;
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
+    if (!canDragAndDrop || !srcId || srcId === targetTaskId) return;
+    const srcIdx = tasks.findIndex(t => t.id === srcId);
+    const tgtIdx = tasks.findIndex(t => t.id === targetTaskId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    reorderTasks(srcIdx, tgtIdx);
+  }, [canDragAndDrop, draggedTaskId, tasks, reorderTasks]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
+  }, []);
 
   let filteredTasks = tasks.filter(t => {
     if (filterType !== 'all' && t.type !== filterType) return false;
@@ -88,7 +147,6 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
         bVal = b.status === 'paused' ? 1 : 0;
         return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
       }
-      // Числові поля (rewardPoints, penaltyPoints, target)
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
       }
@@ -96,50 +154,6 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }
-
-  // Grip завжди видимий, але DnD вимикається якщо є фільтри або сортування (бо indices не збігаються)
-  const canDragAndDrop = !sortKey && filterType === 'all' && filterCategory === 'all';
-  const showGrip = true; // завжди показуємо
-
-  const handleDragStart = (e, taskId) => {
-    if (!canDragAndDrop) { e.preventDefault(); return; }
-    setDraggedTaskId(taskId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', taskId);
-  };
-
-  const handleDragOver = (e, taskId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!canDragAndDrop) return;
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverTaskId(taskId);
-  };
-
-  const handleDragLeave = (e) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      setDragOverTaskId(null);
-    }
-  };
-
-  const handleDrop = (e, targetTaskId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const srcId = draggedTaskId;
-    setDraggedTaskId(null);
-    setDragOverTaskId(null);
-    if (!canDragAndDrop || !srcId || srcId === targetTaskId) return;
-    // Знаходимо реальні індекси в оригінальному масиві tasks
-    const srcIdx = tasks.findIndex(t => t.id === srcId);
-    const tgtIdx = tasks.findIndex(t => t.id === targetTaskId);
-    if (srcIdx === -1 || tgtIdx === -1) return;
-    reorderTasks(srcIdx, tgtIdx);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedTaskId(null);
-    setDragOverTaskId(null);
-  };
 
   const handleSortHeader = (key) => {
     if (sortKey === key) {
@@ -348,13 +362,14 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                     draggable={canDragAndDrop}
                     onDragStart={(e) => handleDragStart(e, task.id)}
                     onDragEnd={handleDragEnd}
-                    style={{ 
+                    style={{
                       width: 36,
-                      textAlign: 'center', 
+                      textAlign: 'center',
                       cursor: canDragAndDrop ? 'grab' : 'not-allowed',
                       color: canDragAndDrop ? 'var(--text-secondary)' : 'var(--text-muted)',
                       opacity: canDragAndDrop ? 1 : 0.35,
                       userSelect: 'none',
+                      WebkitUserSelect: 'none',
                     }}
                     title={canDragAndDrop ? 'Перетягни для зміни порядку' : 'Вимкні фільтри/сортування для DnD'}
                   >
