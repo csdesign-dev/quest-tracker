@@ -194,6 +194,15 @@ export default function App() {
     setTasks(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const reorderTasks = useCallback((sourceIndex, destinationIndex) => {
+    setTasks(prev => {
+      const result = Array.from(prev);
+      const [removed] = result.splice(sourceIndex, 1);
+      result.splice(destinationIndex, 0, removed);
+      return result;
+    });
+  }, []);
+
   const logCompletion = useCallback((taskId, dateStr, delta) => {
     setTasks(prev => prev.map(t => {
       if (t.id !== taskId) return t;
@@ -283,7 +292,7 @@ export default function App() {
       case 'stats':
         return <StatsView tasks={tasks} scores={scores} />;
       case 'tasks':
-        return <TaskManager tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} />;
+        return <TaskManager tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} reorderTasks={reorderTasks} />;
       case 'support':
         return <SupportView />;
       default:

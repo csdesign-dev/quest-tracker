@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Pencil, Trash2, Settings, X, Save, Copy, Pause, Play } from 'lucide-react';
+import { Plus, Pencil, Trash2, Settings, X, Save, Copy, Pause, Play, GripVertical } from 'lucide-react';
 import { CATEGORIES, TASK_TYPES, ICON_OPTIONS } from '../data/defaultTasks';
 import DynamicIcon from './DynamicIcon';
 import { v4 as uuidv4 } from 'uuid';
@@ -31,7 +31,7 @@ const emptyTask = {
   completions: {},
 };
 
-export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) {
+export default function TaskManager({ tasks, addTask, updateTask, deleteTask, reorderTasks }) {
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [formData, setFormData] = useState({ ...emptyTask });
@@ -65,13 +65,74 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
     });
   };
   const [filterCategory, setFilterCategory] = useState('all');
+  const [sortType, setSortType] = useState('manual');
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const filteredTasks = tasks.filter(t => {
+  // Drag and Drop state
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  let filteredTasks = tasks.filter(t => {
     if (filterType !== 'all' && t.type !== filterType) return false;
     if (filterCategory !== 'all' && t.category !== filterCategory) return false;
     return true;
   });
+
+  if (sortType !== 'manual') {
+    filteredTasks.sort((a, b) => {
+      if (sortType === 'status') {
+         const aActive = a.status !== 'paused';
+         const bActive = b.status !== 'paused';
+         return (aActive === bActive) ? 0 : aActive ? -1 : 1;
+      }
+      if (sortType === 'type') {
+         return a.type.localeCompare(b.type);
+      }
+      if (sortType === 'category') {
+         return a.category.localeCompare(b.category);
+      }
+      return 0;
+    });
+  }
+
+  const canDragAndDrop = filterType === 'all' && filterCategory === 'all' && sortType === 'manual';
+
+  const handleDragStart = (e, index) => {
+    if (!canDragAndDrop) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (!canDragAndDrop) return;
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, targetIndex) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    if (!canDragAndDrop || draggedIndex === null || draggedIndex === targetIndex) return;
+    reorderTasks(draggedIndex, targetIndex);
+    setDraggedIndex(null);
+  };
+  
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
 
   const openCreateForm = () => {
     setFormData({ ...emptyTask });
@@ -199,6 +260,14 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
           ))}
         </select>
 
+        <select className="form-select" style={{ width: 'auto', minWidth: 170 }}
+          value={sortType} onChange={(e) => setSortType(e.target.value)}>
+          <option value="manual">Свій порядок (Drag&Drop)</option>
+          <option value="status">За статусом</option>
+          <option value="type">За типом</option>
+          <option value="category">За категорією</option>
+        </select>
+
         <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)', marginLeft: 'auto' }}>
           {filteredTasks.length} задач
         </span>
@@ -210,6 +279,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: 40 }}></th>
                 <th></th>
                 <th>Назва</th>
                 <th>Тип</th>
@@ -223,8 +293,29 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask }) 
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.map(task => (
-                <tr key={task.id} style={{ opacity: task.status === 'paused' ? 0.5 : 1 }}>
+              {filteredTasks.map((task, index) => (
+                <tr 
+                  key={task.id} 
+                  style={{ 
+                    opacity: task.status === 'paused' ? 0.5 : (draggedIndex === index ? 0.3 : 1),
+                    backgroundColor: dragOverIndex === index ? 'var(--bg-card-hover)' : '',
+                    borderTop: dragOverIndex === index ? '2px solid var(--color-primary)' : ''
+                  }}
+                  draggable={canDragAndDrop}
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <td style={{ 
+                    width: 40, 
+                    textAlign: 'center', 
+                    cursor: canDragAndDrop ? 'grab' : 'default', 
+                    color: canDragAndDrop ? 'var(--text-secondary)' : 'transparent' 
+                  }}>
+                    <GripVertical size={16} />
+                  </td>
                   <td>
                     <div className={`task-item-icon ${task.type}`} style={{ width: 32, height: 32 }}>
                       <DynamicIcon name={task.icon} size={16} />
