@@ -72,24 +72,53 @@ export default function SupportView() {
   const [feedbackEmail, setFeedbackEmail] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
 
-  const handleSubmitFeedback = (e) => {
+  const [isSending, setIsSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubmitFeedback = async (e) => {
     e.preventDefault();
     if (!feedbackText.trim()) return;
 
-    // For now, store in localStorage. Will connect to backend later.
-    const feedbackList = JSON.parse(localStorage.getItem('quest-tracker-feedback') || '[]');
-    feedbackList.push({
-      type: feedbackType,
-      text: feedbackText.trim(),
-      email: feedbackEmail.trim() || null,
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem('quest-tracker-feedback', JSON.stringify(feedbackList));
+    const accessKey = import.meta.env.VITE_WEB3FORMS_KEY;
+    if (!accessKey) {
+      setErrorMsg("Ключ Web3Forms не налаштовано. Додайте VITE_WEB3FORMS_KEY у .env");
+      return;
+    }
 
-    setFeedbackSent(true);
-    setFeedbackText('');
-    setFeedbackEmail('');
-    setTimeout(() => setFeedbackSent(false), 3000);
+    setIsSending(true);
+    setErrorMsg('');
+
+    try {
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          access_key: accessKey,
+          subject: `Quest Tracker Feedback: ${feedbackType}`,
+          from_name: "Quest Tracker App",
+          email: feedbackEmail.trim() || "no-reply@questtracker.app",
+          message: `Тип: ${feedbackType}\nEmail користувача: ${feedbackEmail || 'Не вказано'}\n\nПовідомлення:\n${feedbackText.trim()}`,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setFeedbackSent(true);
+        setFeedbackText('');
+        setFeedbackEmail('');
+        setTimeout(() => setFeedbackSent(false), 3000);
+      } else {
+        setErrorMsg('Не вдалося відправити повідомлення. Спробуйте пізніше.');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Сталася помилка при відправці.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleClearCache = () => {
@@ -206,8 +235,14 @@ export default function SupportView() {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={!feedbackText.trim()}>
-              <Send size={16} /> Надіслати
+            {errorMsg && (
+              <div style={{ color: 'var(--color-danger)', fontSize: 'var(--font-sm)', marginBottom: 'var(--space-md)' }}>
+                {errorMsg}
+              </div>
+            )}
+
+            <button type="submit" className="btn btn-primary" disabled={!feedbackText.trim() || isSending}>
+              {isSending ? 'Відправка...' : <><Send size={16} /> Надіслати</>}
             </button>
           </form>
         )}
@@ -269,7 +304,7 @@ export default function SupportView() {
 
           <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textAlign: 'center', marginTop: 'var(--space-sm)' }}>
             <Mail size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-            Підтримка: support@questtracker.app
+            Підтримка: crabsstudiodesign@gmail.com
           </div>
         </div>
       </div>
