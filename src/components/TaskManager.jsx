@@ -828,13 +828,30 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                         <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>Фінальний бонус (за загальний успіх)</div>
                         <div className="form-row">
                           <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Скільки разів треба зробити?</label>
+                            <label className="form-label" style={{ fontSize: 11 }}>
+                              {formData.targetType === 'time' ? 'Скільки всього хвилин треба?' : 'Скільки всього разів треба?'}
+                            </label>
                             <input
                               className="form-input"
                               type="number"
                               min="1"
+                              max={
+                                formData.challengeType === 'daily_streak'
+                                  ? (formData.target || 1) * (formData.durationDays || 30)
+                                  : formData.challengeType === 'weekly_recurrent'
+                                  ? (formData.target || 1) * (formData.durationWeeks || 4)
+                                  : (formData.target || 1)
+                              }
                               value={formData.finalBonusThreshold || 10}
-                              onChange={(e) => setFormData({ ...formData, finalBonusThreshold: Number(e.target.value) })}
+                              onChange={(e) => {
+                                let val = Number(e.target.value);
+                                let maxVal = formData.target || 1;
+                                if (formData.challengeType === 'daily_streak') maxVal *= (formData.durationDays || 30);
+                                else if (formData.challengeType === 'weekly_recurrent') maxVal *= (formData.durationWeeks || 4);
+                                
+                                if (val > maxVal) val = maxVal;
+                                setFormData({ ...formData, finalBonusThreshold: val });
+                              }}
                             />
                           </div>
                           <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
