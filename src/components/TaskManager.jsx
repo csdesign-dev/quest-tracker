@@ -147,14 +147,23 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
     document.addEventListener('pointerup', onEnd);
   }, [canDragAndDrop, tasks, reorderTasks]);
 
-  let filteredTasks = tasks.filter(t => {
+  let mainTasks = tasks.filter(t => {
     if (filterType !== 'all' && t.type !== filterType) return false;
     if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+    if (t.type === 'draft') return false; // Hide drafts from main list
     return true;
   });
 
-  if (sortKey) {
-    filteredTasks = [...filteredTasks].sort((a, b) => {
+  let draftTasks = tasks.filter(t => {
+    if (filterType !== 'all' && t.type !== filterType) return false;
+    if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+    if (t.type !== 'draft') return false;
+    return true;
+  });
+
+  const applySort = (list) => {
+    if (!sortKey) return list;
+    return [...list].sort((a, b) => {
       let aVal = a[sortKey] ?? '';
       let bVal = b[sortKey] ?? '';
       if (sortKey === 'status') {
@@ -168,7 +177,10 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
       const cmp = String(aVal).localeCompare(String(bVal), 'uk');
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }
+  };
+
+  mainTasks = applySort(mainTasks);
+  draftTasks = applySort(draftTasks);
 
   const handleSortHeader = (key) => {
     if (sortKey === key) {
@@ -314,9 +326,146 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
         {/* Випадаюче меню сортування видалено. Сортування через натиск на заголовок таблиці */}
 
         <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)', marginLeft: 'auto' }}>
-          {filteredTasks.length} задач
+          {mainTasks.length + draftTasks.length} задач
         </span>
       </div>
+
+      {/* Draft Tasks Card */}
+      {draftTasks.length > 0 && filterType === 'all' && (
+        <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
+          <div className="card-header" style={{ marginBottom: 12 }}>
+            <span className="card-title">💡 Швидко записані ідеї</span>
+            <span className="card-subtitle">{draftTasks.length} ідей</span>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}></th>
+                  <th style={{ width: 40 }}></th>
+                  <th
+                    onClick={() => handleSortHeader('name')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Назва <SortIcon col="name" /></th>
+                  <th
+                    onClick={() => handleSortHeader('type')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Тип <SortIcon col="type" /></th>
+                  <th
+                    onClick={() => handleSortHeader('category')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Категорія <SortIcon col="category" /></th>
+                  <th
+                    onClick={() => handleSortHeader('target')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Таргет <SortIcon col="target" /></th>
+                  <th
+                    onClick={() => handleSortHeader('rewardPoints')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Нагорода <SortIcon col="rewardPoints" /></th>
+                  <th
+                    onClick={() => handleSortHeader('penaltyPoints')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Штраф <SortIcon col="penaltyPoints" /></th>
+                  <th>Бонуси</th>
+                  <th
+                    onClick={() => handleSortHeader('status')}
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  >Статус <SortIcon col="status" /></th>
+                  <th>Дії</th>
+                </tr>
+              </thead>
+              <tbody>
+                {draftTasks.map((task) => (
+                  <tr 
+                    key={task.id}
+                    data-task-id={task.id}
+                    style={{ 
+                      opacity: task.status === 'paused' ? 0.5 : (draggedTaskId === task.id ? 0.3 : 1),
+                      backgroundColor: dragOverTaskId === task.id ? 'var(--bg-card-hover)' : '',
+                      borderTop: dragOverTaskId === task.id ? '2px solid var(--color-primary)' : '',
+                      transition: 'background-color 0.15s ease',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                    }}
+                  >
+                    {/* Grip handle — Pointer Events (Safari + Chrome + Firefox) */}
+                    <td
+                      onPointerDown={(e) => startDrag(e, task.id)}
+                      style={{
+                        width: 36,
+                        textAlign: 'center',
+                        cursor: canDragAndDrop ? 'grab' : 'not-allowed',
+                        color: canDragAndDrop ? 'var(--text-secondary)' : 'var(--text-muted)',
+                        opacity: canDragAndDrop ? 1 : 0.35,
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        touchAction: 'none',
+                      }}
+                      title={canDragAndDrop ? 'Перетягни для зміни порядку' : 'Вимкні фільтри/сортування для DnD'}
+                    >
+                      <GripVertical size={16} />
+                    </td>
+                    <td>
+                      <div className={`task-item-icon ${task.type}`} style={{ width: 32, height: 32 }}>
+                        <DynamicIcon name={task.icon} size={16} />
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{task.name}</td>
+                    <td><span className={`badge badge-${task.type}`}>{
+                      TASK_TYPES.find(t => t.value === task.type)?.label || task.type
+                    }</span></td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{task.category}</td>
+                    <td>{formatTarget(task.target, task.targetType)}</td>
+                    <td><span className="points-badge points-positive">+{task.rewardPoints}</span></td>
+                    <td>
+                      {task.penaltyPoints < 0 ? (
+                        <span className="points-badge points-negative">{task.penaltyPoints}</span>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {task.bonusTiers && task.bonusTiers.length > 0 ? (
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {task.bonusTiers.map((tier, i) => (
+                            <span key={i} className="points-badge points-positive" style={{ fontSize: 10 }}>
+                              {formatTarget(tier.threshold, task.targetType)}{task.targetType === 'time' ? ' →' : '× →'} +{tier.points}
+                            </span>
+                          ))}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${task.status === 'paused' ? 'badge-secondary' : 'badge-success'}`}
+                        style={{ fontSize: 11, padding: '4px 8px' }}
+                      >
+                        {task.status === 'paused' ? 'На паузі' : 'Активна'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn-icon" style={{ width: 28, height: 28, color: task.status === 'paused' ? 'var(--color-success)' : 'var(--color-warning)' }} onClick={() => handleTogglePause(task)} title={task.status === 'paused' ? 'Відновити' : 'Поставити на паузу'}>
+                          {task.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
+                        </button>
+                        <button className="btn-icon" style={{ width: 28, height: 28 }} onClick={() => openEditForm(task)} title="Редагувати">
+                          <Pencil size={14} />
+                        </button>
+                        <button className="btn-icon" style={{ width: 28, height: 28 }} onClick={() => duplicateTask(task)} title="Дублювати">
+                          <Copy size={14} />
+                        </button>
+                        <button className="btn-icon" style={{ width: 28, height: 28, color: 'var(--color-danger)' }}
+                          onClick={() => setConfirmDelete(task.id)} title="Видалити">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Task Table */}
       <div className="card">
@@ -359,7 +508,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.map((task) => (
+              {mainTasks.map((task) => (
                 <tr 
                   key={task.id}
                   data-task-id={task.id}
@@ -444,7 +593,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                   </td>
                 </tr>
               ))}
-              {filteredTasks.length === 0 && (
+              {mainTasks.length === 0 && (
                 <tr>
                   <td colSpan={10}>
                     <div className="empty-state">
