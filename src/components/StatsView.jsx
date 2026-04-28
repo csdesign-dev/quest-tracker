@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { PERIOD_LABELS, getDailyScoresForChart, getWeeklyScoresForChart, calculateTaskScore, calculateMaxScore, getPeriodRange, getCustomRangeScores } from '../utils/scoring';
 import ProgressRing from './ProgressRing';
+import StatsCalendar from './StatsCalendar';
 
 const COLORS = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];
 
@@ -22,6 +23,7 @@ const CHART_TOOLTIP = {
 };
 
 export default function StatsView({ tasks, scores }) {
+  const [viewMode, setViewMode] = useState('calendar'); // 'charts' or 'calendar'
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [chartType, setChartType] = useState('daily');
   const [customStart, setCustomStart] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -79,16 +81,37 @@ export default function StatsView({ tasks, scores }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header">
-        <h2>
-          <LayoutDashboard size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-          Статистика та Дашборд
-        </h2>
-        <p>Загальна інформація та детальний аналіз прогресу</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2>
+            <LayoutDashboard size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+            Статистика та Дашборд
+          </h2>
+          <p>Загальна інформація та детальний аналіз прогресу</p>
+        </div>
+        
+        <div className="tabs" style={{ marginBottom: 0 }}>
+          <button 
+            className={`tab ${viewMode === 'calendar' ? 'active' : ''}`}
+            onClick={() => setViewMode('calendar')}
+          >
+            <Calendar size={16} style={{ marginRight: 6 }} /> Календар
+          </button>
+          <button 
+            className={`tab ${viewMode === 'charts' ? 'active' : ''}`}
+            onClick={() => setViewMode('charts')}
+          >
+            <BarChart3 size={16} style={{ marginRight: 6 }} /> Графіки
+          </button>
+        </div>
       </div>
 
-      {/* Quick Score Cards (from Dashboard) */}
-      <div className="score-cards-row" style={{ marginBottom: 'var(--space-xl)' }}>
+      {viewMode === 'calendar' ? (
+        <StatsCalendar tasks={tasks} />
+      ) : (
+        <>
+          {/* Quick Score Cards (from Dashboard) */}
+          <div className="score-cards-row" style={{ marginBottom: 'var(--space-xl)' }}>
         {['day', 'week', 'month', 'all'].map(key => {
           const s = scores[key] || {};
           const score = s.score || 0;
@@ -373,6 +396,8 @@ export default function StatsView({ tasks, scores }) {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

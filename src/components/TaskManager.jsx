@@ -29,6 +29,7 @@ const emptyTask = {
   finalBonusPoints: 10,
   finalBonusThreshold: 10,
   completions: {},
+  daysOfWeek: [],
 };
 
 export default function TaskManager({ tasks, addTask, updateTask, deleteTask, reorderTasks }) {
@@ -757,6 +758,53 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                     </div>
                   )}
                 </div>
+
+                {formData.type === 'weekly' && (
+                  <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                    <label className="form-label">У які дні виконувати? (Необов'язково)</label>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+                      {[
+                        { val: 1, label: 'Пн' },
+                        { val: 2, label: 'Вт' },
+                        { val: 3, label: 'Ср' },
+                        { val: 4, label: 'Чт' },
+                        { val: 5, label: 'Пт' },
+                        { val: 6, label: 'Сб' },
+                        { val: 0, label: 'Нд' }
+                      ].map(day => {
+                        const isSelected = (formData.daysOfWeek || []).includes(day.val);
+                        return (
+                          <button
+                            key={day.val}
+                            type="button"
+                            className={`btn btn-sm ${isSelected ? 'btn-primary' : ''}`}
+                            style={{ 
+                              flex: 1, 
+                              minWidth: 36, 
+                              padding: '4px 0',
+                              background: isSelected ? 'var(--color-primary)' : 'rgba(0,0,0,0.2)',
+                              color: isSelected ? 'white' : 'var(--text-secondary)',
+                              border: 'none'
+                            }}
+                            onClick={() => {
+                              const current = formData.daysOfWeek || [];
+                              if (isSelected) {
+                                setFormData({ ...formData, daysOfWeek: current.filter(d => d !== day.val) });
+                              } else {
+                                setFormData({ ...formData, daysOfWeek: [...current, day.val] });
+                              }
+                            }}
+                          >
+                            {day.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+                      Якщо не обрати жодного дня, задача буде доступна всі дні тижня.
+                    </div>
+                  </div>
+                )}
 
                 {formData.type === 'challenge' && (
                   <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>

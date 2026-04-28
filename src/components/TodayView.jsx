@@ -56,7 +56,13 @@ export default function TodayView({ tasks, logCompletion }) {
   };
 
   const dailyTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'daily');
-  const weeklyTasks = tasks.filter(t => isValidForPeriod(t, weekEnd) && t.type === 'weekly');
+  const weeklyTasks = tasks.filter(t => {
+    if (!isValidForPeriod(t, weekEnd) || t.type !== 'weekly') return false;
+    if (t.daysOfWeek && t.daysOfWeek.length > 0) {
+      return t.daysOfWeek.includes(selectedDate.getDay());
+    }
+    return true;
+  });
   const monthlyTasks = tasks.filter(t => isValidForPeriod(t, monthEnd) && t.type === 'monthly');
   const bonusTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'bonus');
   const challengeTasks = tasks.filter(t => t.type === 'challenge' && isChallengeActiveOnDate(t, dateStr));
