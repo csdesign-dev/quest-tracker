@@ -30,6 +30,7 @@ const emptyTask = {
   finalBonusThreshold: 10,
   completions: {},
   daysOfWeek: [],
+  bonusDate: null,
 };
 
 export default function TaskManager({ tasks, addTask, updateTask, deleteTask, reorderTasks }) {
@@ -758,6 +759,21 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                     </div>
                   )}
                 </div>
+
+                {formData.type === 'bonus' && (
+                  <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                    <label className="form-label">На який день? (Необов'язково)</label>
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={formData.bonusDate || ''}
+                      onChange={(e) => setFormData({ ...formData, bonusDate: e.target.value || null })}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+                      Якщо обрати день, задача з'явиться лише в цей день. Якщо ні — буде доступна щодня.
+                    </div>
+                  </div>
+                )}
 
                 {formData.type === 'weekly' && (
                   <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
