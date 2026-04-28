@@ -66,8 +66,9 @@ export default function TodayView({ tasks, logCompletion }) {
   const monthlyTasks = tasks.filter(t => isValidForPeriod(t, monthEnd) && t.type === 'monthly');
   const bonusTasks = tasks.filter(t => {
     if (!isValidForDate(t, selectedDate) || t.type !== 'bonus') return false;
-    if (t.bonusDate) {
-      return t.bonusDate === dateStr;
+    const dates = t.bonusDates || (t.bonusDate ? [t.bonusDate] : []);
+    if (dates.length > 0) {
+      return dates.includes(dateStr);
     }
     return true;
   });

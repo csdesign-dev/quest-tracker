@@ -30,7 +30,7 @@ const emptyTask = {
   finalBonusThreshold: 10,
   completions: {},
   daysOfWeek: [],
-  bonusDate: null,
+  bonusDates: [],
 };
 
 export default function TaskManager({ tasks, addTask, updateTask, deleteTask, reorderTasks }) {
@@ -762,15 +762,48 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
 
                 {formData.type === 'bonus' && (
                   <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
-                    <label className="form-label">На який день? (Необов'язково)</label>
-                    <input
-                      className="form-input"
-                      type="date"
-                      value={formData.bonusDate || ''}
-                      onChange={(e) => setFormData({ ...formData, bonusDate: e.target.value || null })}
-                    />
+                    <label className="form-label">На які дні? (Необов'язково)</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                      <input
+                        className="form-input"
+                        type="date"
+                        id="bonus-date-picker"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={() => {
+                          const input = document.getElementById('bonus-date-picker');
+                          if (input && input.value) {
+                            const current = formData.bonusDates || formData.bonusDate ? [formData.bonusDate].filter(Boolean) : [];
+                            if (!current.includes(input.value)) {
+                              setFormData({ ...formData, bonusDates: [...current, input.value], bonusDate: undefined });
+                            }
+                            input.value = '';
+                          }
+                        }}
+                      >+ Додати</button>
+                    </div>
+                    {((formData.bonusDates && formData.bonusDates.length > 0) || formData.bonusDate) && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                        {(formData.bonusDates || (formData.bonusDate ? [formData.bonusDate] : [])).map(d => (
+                          <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--color-primary)', color: 'white', padding: '3px 8px', borderRadius: 6, fontSize: 12 }}>
+                            {d.split('-').reverse().join('.')}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (formData.bonusDates || [formData.bonusDate].filter(Boolean)).filter(x => x !== d);
+                                setFormData({ ...formData, bonusDates: updated, bonusDate: undefined });
+                              }}
+                              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
+                            >×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
-                      Якщо обрати день, задача з'явиться лише в цей день. Якщо ні — буде доступна щодня.
+                      Якщо обрати дні, задача з'явиться лише в ці дні. Якщо ні — буде доступна щодня.
                     </div>
                   </div>
                 )}
