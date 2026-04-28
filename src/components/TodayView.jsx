@@ -19,19 +19,19 @@ export default function TodayView({ tasks, logCompletion }) {
   const monthEnd = endOfMonth(selectedDate);
 
   const isValidForDate = (task, dateToCheck) => {
-    if (!task.enabled || task.status === 'paused') return false;
+    if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
     if (!task.createdAt) return true;
     return dateStr >= task.createdAt;
   };
 
   const isValidForPeriod = (task, periodEnd) => {
-    if (!task.enabled || task.status === 'paused') return false;
+    if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
     if (!task.createdAt) return true;
     return format(periodEnd, 'yyyy-MM-dd') >= task.createdAt;
   };
 
   const isChallengeActiveOnDate = (task, dateStr) => {
-    if (!task.enabled || task.status === 'paused') return false;
+    if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
     if (!task.createdAt) return true;
     if (dateStr < task.createdAt) return false;
     

@@ -148,6 +148,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
   }, [canDragAndDrop, tasks, reorderTasks]);
 
   let mainTasks = tasks.filter(t => {
+    if (t.status === 'archived') return false;
     if (filterType !== 'all' && t.type !== filterType) return false;
     if (filterCategory !== 'all' && t.category !== filterCategory) return false;
     if (t.type === 'draft') return false; // Hide drafts from main list
@@ -155,6 +156,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
   });
 
   let draftTasks = tasks.filter(t => {
+    if (t.status === 'archived') return false;
     if (filterType !== 'all' && t.type !== filterType) return false;
     if (filterCategory !== 'all' && t.category !== filterCategory) return false;
     if (t.type !== 'draft') return false;
@@ -249,8 +251,18 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
     setQuickAddText('');
   };
 
-  const handleDeleteConfirm = (id) => {
-    deleteTask(id);
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return;
+    deleteTask(confirmDelete);
+    setConfirmDelete(null);
+  };
+
+  const handleArchiveConfirm = () => {
+    if (!confirmDelete) return;
+    const taskToArchive = tasks.find(t => t.id === confirmDelete);
+    if (taskToArchive) {
+      updateTask(taskToArchive.id, { ...taskToArchive, status: 'archived' });
+    }
     setConfirmDelete(null);
   };
 
@@ -909,21 +921,41 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
       {/* Delete Confirmation */}
       {confirmDelete && (
         <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 450 }}>
             <div className="modal-header">
               <h3>Видалити задачу?</h3>
               <button className="btn-icon" onClick={() => setConfirmDelete(null)}><X size={18} /></button>
             </div>
             <div className="modal-body">
-              <div className="confirm-body">
-                <p>Ця дія видалить задачу та всю її історію. Це не можна скасувати.</p>
+              <p style={{ marginBottom: 16 }}>Що зробити з історією виконання цієї задачі?</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ justifyContent: 'flex-start', textAlign: 'left', height: 'auto', padding: '12px 16px' }}
+                  onClick={handleArchiveConfirm}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Видалити, але зберегти історію</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Задача зникне зі списків, але зароблені бали залишаться в статистиці.</div>
+                  </div>
+                </button>
+                
+                <button 
+                  className="btn btn-danger" 
+                  style={{ justifyContent: 'flex-start', textAlign: 'left', height: 'auto', padding: '12px 16px', background: 'rgba(239, 68, 68, 0.1)' }}
+                  onClick={handleDeleteConfirm}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Видалити повністю</div>
+                    <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>Всі бали та історія, пов'язана з цією задачею, будуть назавжди видалені.</div>
+                  </div>
+                </button>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Скасувати</button>
-              <button className="btn btn-danger" onClick={() => handleDeleteConfirm(confirmDelete)}>
-                <Trash2 size={16} /> Видалити
-              </button>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                <button className="btn" onClick={() => setConfirmDelete(null)}>Скасувати</button>
+              </div>
             </div>
           </div>
         </div>
