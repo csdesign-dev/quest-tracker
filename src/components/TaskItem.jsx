@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import DynamicIcon from './DynamicIcon';
 import { formatTime, formatTarget } from '../utils/formatters';
 
 export default function TaskItem({ task, dateStr, onLog }) {
+  const [timeInput, setTimeInput] = useState(15);
   const completions = task.completions?.[dateStr] || 0;
   const target = task.target || 1;
   const isLimit = task.type === 'limit';
@@ -55,43 +56,68 @@ export default function TaskItem({ task, dateStr, onLog }) {
       </div>
 
       <div className="task-item-progress">
-        <div className="task-counter">
-          <button
-            className="task-counter-btn"
-            onClick={() => {
-              if (task.targetType === 'time') {
-                const val = window.prompt('Скільки хвилин відняти?', '15');
-                if (val && !isNaN(val)) {
-                  onLog(task.id, dateStr, -Math.abs(Number(val)));
-                }
-              } else {
-                onLog(task.id, dateStr, -1);
-              }
-            }}
-            disabled={completions <= 0}
-          >
-            <Minus size={16} />
-          </button>
-          <span className="task-counter-value" style={isLimit && completions > target ? { color: 'var(--color-danger)' } : {}}>
-            {task.targetType === 'time' ? formatTime(completions) : completions}
-          </span>
-          <span className="task-counter-target">{isLimit ? `макс ${formatTarget(target, task.targetType)}` : `/ ${formatTarget(target, task.targetType)}`}</span>
-          <button
-            className="task-counter-btn"
-            onClick={() => {
-              if (task.targetType === 'time') {
-                const val = window.prompt('Скільки хвилин додати?', '15');
-                if (val && !isNaN(val)) {
-                  onLog(task.id, dateStr, Math.abs(Number(val)));
-                }
-              } else {
-                onLog(task.id, dateStr, 1);
-              }
-            }}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        {task.targetType === 'time' ? (
+          <div className="task-counter" style={{ padding: '4px 6px', gap: 6 }}>
+            <input
+              type="number"
+              step="5"
+              min="1"
+              value={timeInput}
+              onChange={(e) => setTimeInput(Math.max(1, Number(e.target.value)))}
+              style={{
+                width: 46,
+                background: 'var(--bg-secondary)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 4,
+                color: 'var(--text-primary)',
+                textAlign: 'center',
+                fontSize: 13,
+                padding: '4px 0',
+                fontWeight: 600
+              }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>хв</span>
+            <button
+              className="task-counter-btn"
+              onClick={() => onLog(task.id, dateStr, -timeInput)}
+              disabled={completions <= 0}
+            >
+              <Minus size={16} />
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 40 }}>
+              <span className="task-counter-value" style={isLimit && completions > target ? { color: 'var(--color-danger)' } : { fontSize: 13 }}>
+                {formatTime(completions)}
+              </span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>/ {formatTarget(target, task.targetType)}</span>
+            </div>
+            <button
+              className="task-counter-btn"
+              onClick={() => onLog(task.id, dateStr, timeInput)}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="task-counter">
+            <button
+              className="task-counter-btn"
+              onClick={() => onLog(task.id, dateStr, -1)}
+              disabled={completions <= 0}
+            >
+              <Minus size={16} />
+            </button>
+            <span className="task-counter-value" style={isLimit && completions > target ? { color: 'var(--color-danger)' } : {}}>
+              {completions}
+            </span>
+            <span className="task-counter-target">{isLimit ? `макс ${formatTarget(target, task.targetType)}` : `/ ${formatTarget(target, task.targetType)}`}</span>
+            <button
+              className="task-counter-btn"
+              onClick={() => onLog(task.id, dateStr, 1)}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -7,6 +7,52 @@ import DynamicIcon from './DynamicIcon';
 import { getCompletionsInRange } from '../utils/scoring';
 import { formatTime, formatTarget } from '../utils/formatters';
 
+const InlineTimeCounter = ({ completions, target, onLog, isLimit, exceeded }) => {
+  const [timeInput, setTimeInput] = useState(15);
+  return (
+    <div className="task-counter" style={{ padding: '4px 6px', gap: 6 }}>
+      <input
+        type="number"
+        step="5"
+        min="1"
+        value={timeInput}
+        onChange={(e) => setTimeInput(Math.max(1, Number(e.target.value)))}
+        style={{
+          width: 46,
+          background: 'var(--bg-secondary)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 4,
+          color: 'var(--text-primary)',
+          textAlign: 'center',
+          fontSize: 13,
+          padding: '4px 0',
+          fontWeight: 600
+        }}
+      />
+      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>хв</span>
+      <button
+        className="task-counter-btn"
+        onClick={() => onLog(-timeInput)}
+        disabled={completions <= 0}
+      >
+        <Minus size={16} />
+      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 40 }}>
+        <span className="task-counter-value" style={exceeded ? { color: 'var(--color-danger)' } : { fontSize: 13 }}>
+          {formatTime(completions)}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>сьог.</span>
+      </div>
+      <button
+        className="task-counter-btn"
+        onClick={() => onLog(timeInput)}
+      >
+        <Plus size={16} />
+      </button>
+    </div>
+  );
+};
+
 export default function TodayView({ tasks, logCompletion }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -24,35 +70,34 @@ export default function TodayView({ tasks, logCompletion }) {
     return dateStr >= task.createdAt;
   };
 
+  const isChallengeActiveOnDate = (task, dateToCheck) => {
+    if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
+    if (!task.createdAt) return true;
+    
+    // Convert strings to dates for comparison
+    const checkDate = new Date(dateToCheck);
+    const startDate = new Date(task.createdAt);
+    
+    // Ignore time portion
+    checkDate.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    
+    if (checkDate < startDate) return false; // Before challenge started
+    
+    const daysSinceStart = Math.floor((checkDate - startDate) / (1000 * 60 * 60 * 24));
+    
+    let totalDays = task.durationWeeks * 7;
+    return daysSinceStart < totalDays;
+  };
+
   const isValidForPeriod = (task, periodEnd) => {
     if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
     if (!task.createdAt) return true;
-    return format(periodEnd, 'yyyy-MM-dd') >= task.createdAt;
-  };
-
-  const isChallengeActiveOnDate = (task, dateStr) => {
-    if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
-    if (!task.createdAt) return true;
-    if (dateStr < task.createdAt) return false;
-    
-    const taskStartDate = startOfDay(new Date(task.createdAt));
-    const currentDate = startOfDay(new Date(dateStr));
-
-    if (task.challengeType === 'date') {
-      if (!task.deadline) return true;
-      return dateStr <= task.deadline;
-    }
-    if (task.challengeType === 'daily_streak') {
-      const duration = task.durationDays || 30;
-      const daysDiff = Math.floor((currentDate - taskStartDate) / (1000 * 60 * 60 * 24));
-      return daysDiff < duration;
-    }
-    if (task.challengeType === 'weekly_recurrent') {
-      const duration = task.durationWeeks || 4;
-      const weeksDiff = Math.floor((currentDate - taskStartDate) / (1000 * 60 * 60 * 24 * 7));
-      return weeksDiff < duration;
-    }
-    return true;
+    const taskCreatedStart = new Date(task.createdAt);
+    taskCreatedStart.setHours(0, 0, 0, 0);
+    const end = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+    return taskCreatedStart <= end;
   };
 
   const dailyTasks = tasks.filter(t => isValidForDate(t, selectedDate) && t.type === 'daily');
@@ -88,15 +133,7 @@ export default function TodayView({ tasks, logCompletion }) {
   const goToday = () => setSelectedDate(new Date());
 
   const handleLog = (task, delta) => {
-    if (task.targetType === 'time') {
-      const isAdd = delta > 0;
-      const val = window.prompt(`Скільки хвилин ${isAdd ? 'додати' : 'відняти'}?`, '15');
-      if (val && !isNaN(val)) {
-        logCompletion(task.id, dateStr, isAdd ? Math.abs(Number(val)) : -Math.abs(Number(val)));
-      }
-    } else {
-      logCompletion(task.id, dateStr, delta);
-    }
+    logCompletion(task.id, dateStr, delta);
   };
 
   return (
@@ -216,23 +253,31 @@ export default function TodayView({ tasks, logCompletion }) {
                     )}
                   </div>
                   <div className="task-item-progress">
-                    <div className="task-counter">
-                      <button
-                        className="task-counter-btn"
-                        onClick={() => handleLog(task, -1)}
-                        disabled={todayCompletions <= 0}
-                      >
-                        <Minus size={16} />
-                      </button>
-                      <span className="task-counter-value">{task.targetType === 'time' ? formatTime(todayCompletions) : todayCompletions}</span>
-                      <span className="task-counter-target">сьог.</span>
-                      <button
-                        className="task-counter-btn"
-                        onClick={() => handleLog(task, 1)}
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
+                    {task.targetType === 'time' ? (
+                      <InlineTimeCounter 
+                        completions={todayCompletions} 
+                        target={task.target} 
+                        onLog={(delta) => handleLog(task, delta)} 
+                      />
+                    ) : (
+                      <div className="task-counter">
+                        <button
+                          className="task-counter-btn"
+                          onClick={() => handleLog(task, -1)}
+                          disabled={todayCompletions <= 0}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="task-counter-value">{todayCompletions}</span>
+                        <span className="task-counter-target">сьог.</span>
+                        <button
+                          className="task-counter-btn"
+                          onClick={() => handleLog(task, 1)}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -345,25 +390,35 @@ export default function TodayView({ tasks, logCompletion }) {
                     </div>
                   </div>
                   <div className="task-item-progress">
-                    <div className="task-counter">
-                      <button
-                        className="task-counter-btn"
-                        onClick={() => handleLog(task, -1)}
-                        disabled={todayCompletions <= 0}
-                      >
-                        <Minus size={16} />
-                      </button>
-                      <span className="task-counter-value" style={exceeded ? { color: 'var(--color-danger)' } : {}}>
-                        {task.targetType === 'time' ? formatTime(todayCompletions) : todayCompletions}
-                      </span>
-                      <span className="task-counter-target">сьог.</span>
-                      <button
-                        className="task-counter-btn"
-                        onClick={() => handleLog(task, 1)}
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
+                    {task.targetType === 'time' ? (
+                      <InlineTimeCounter 
+                        completions={todayCompletions} 
+                        target={task.target} 
+                        onLog={(delta) => handleLog(task, delta)} 
+                        isLimit={true}
+                        exceeded={exceeded}
+                      />
+                    ) : (
+                      <div className="task-counter">
+                        <button
+                          className="task-counter-btn"
+                          onClick={() => handleLog(task, -1)}
+                          disabled={todayCompletions <= 0}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="task-counter-value" style={exceeded ? { color: 'var(--color-danger)' } : {}}>
+                          {todayCompletions}
+                        </span>
+                        <span className="task-counter-target">сьог.</span>
+                        <button
+                          className="task-counter-btn"
+                          onClick={() => handleLog(task, 1)}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
