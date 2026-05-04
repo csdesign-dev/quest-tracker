@@ -65,6 +65,7 @@ export default function StatsCalendar({ tasks }) {
     let dayEarned = 0;
     let dayPotential = 0;
     const currentIsToday = isToday(day);
+    const isFutureDay = isBefore(startOfDay(new Date()), startOfDay(day)) && !currentIsToday;
 
     allItems.forEach(task => {
       if (task.status === 'paused' || isTaskPausedOnDate(task, dateStr).paused) return;
@@ -72,26 +73,30 @@ export default function StatsCalendar({ tasks }) {
       const target = task.target || 1;
 
       if (task._kind === 'daily') {
-        const score = scoreDailyForDay(task, dateStr, currentIsToday);
-        if (score > 0) dayEarned += score; // Only positive earned for display? Or net? Let's use net earned.
-        else if (score < 0) dayEarned += score;
+        // Always count potential
+        let p = task.rewardPoints || 0;
+        if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
+        dayPotential += p;
 
-        let p = task.rewardPoints || 0;
-        if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
-        dayPotential += p;
-      } else if (task._kind === 'weekly-day' || task._kind === 'bonus') {
-        if (completed >= target) {
-           let pts = task.rewardPoints || 0;
-           if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (completed >= tier.threshold) pts += tier.points; });
-           dayEarned += pts;
-        } else if (task._kind === 'bonus') {
-           dayEarned += completed * (task.rewardPoints || 0);
+        // Only count earned for past/today
+        if (!isFutureDay) {
+          const score = scoreDailyForDay(task, dateStr, currentIsToday);
+          dayEarned += score;
         }
-        
+      } else if (task._kind === 'weekly-day' || task._kind === 'bonus') {
         let p = task.rewardPoints || 0;
         if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
-        // Bonus tasks only add to potential if it's explicitly scheduled here
         dayPotential += p;
+
+        if (!isFutureDay) {
+          if (completed >= target) {
+            let pts = task.rewardPoints || 0;
+            if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (completed >= tier.threshold) pts += tier.points; });
+            dayEarned += pts;
+          } else if (task._kind === 'bonus') {
+            dayEarned += completed * (task.rewardPoints || 0);
+          }
+        }
       }
     });
 
@@ -273,6 +278,7 @@ export default function StatsCalendar({ tasks }) {
       const dateStr = format(day, 'yyyy-MM-dd');
       const dayOfWeek = getDay(day);
       const currentIsToday = isToday(day);
+      const isFutureDay = isBefore(startOfDay(new Date()), startOfDay(day)) && !currentIsToday;
       
       const dayDailyTasks = dailyTasks.filter(t => isTaskValidOnDate(t, dateStr));
       const dayBonusTasks = bonusTasks.filter(t => {
@@ -298,25 +304,28 @@ export default function StatsCalendar({ tasks }) {
         const target = task.target || 1;
 
         if (task._kind === 'daily') {
-          const score = scoreDailyForDay(task, dateStr, currentIsToday);
-          if (score > 0) earned += score;
-          else if (score < 0) earned += score;
+          let p = task.rewardPoints || 0;
+          if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
+          potential += p;
 
-          let p = task.rewardPoints || 0;
-          if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
-          potential += p;
-        } else if (task._kind === 'weekly-day' || task._kind === 'bonus') {
-          if (completed >= target) {
-            let pts = task.rewardPoints || 0;
-            if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (completed >= tier.threshold) pts += tier.points; });
-            earned += pts;
-          } else if (task._kind === 'bonus') {
-            earned += completed * (task.rewardPoints || 0);
+          if (!isFutureDay) {
+            const score = scoreDailyForDay(task, dateStr, currentIsToday);
+            earned += score;
           }
-          
+        } else if (task._kind === 'weekly-day' || task._kind === 'bonus') {
           let p = task.rewardPoints || 0;
           if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
           potential += p;
+
+          if (!isFutureDay) {
+            if (completed >= target) {
+              let pts = task.rewardPoints || 0;
+              if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (completed >= tier.threshold) pts += tier.points; });
+              earned += pts;
+            } else if (task._kind === 'bonus') {
+              earned += completed * (task.rewardPoints || 0);
+            }
+          }
         }
       });
     });
