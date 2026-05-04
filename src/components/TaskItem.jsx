@@ -3,7 +3,7 @@ import { Minus, Plus } from 'lucide-react';
 import DynamicIcon from './DynamicIcon';
 import { formatTime, formatTarget } from '../utils/formatters';
 
-export default function TaskItem({ task, dateStr, onLog }) {
+export default function TaskItem({ task, dateStr, onLog, onTaskClick }) {
   const [timeInput, setTimeInput] = useState(5);
   const completions = task.completions?.[dateStr] || 0;
   const target = task.target || 1;
@@ -26,8 +26,16 @@ export default function TaskItem({ task, dateStr, onLog }) {
     ? (completions > target ? { borderColor: 'rgba(239,68,68,0.3)' } : {})
     : (isCompleted ? { borderColor: 'rgba(16,185,129,0.3)' } : {});
 
+  const handleContainerClick = () => {
+    if (onTaskClick) onTaskClick(task);
+  };
+
   return (
-    <div className="task-item" style={borderStyle}>
+    <div 
+      className="task-item" 
+      style={{ ...borderStyle, cursor: onTaskClick ? 'pointer' : 'default' }}
+      onClick={handleContainerClick}
+    >
       <div className={`task-item-icon ${task.type}`}>
         <DynamicIcon name={task.icon} size={20} />
       </div>
@@ -55,7 +63,7 @@ export default function TaskItem({ task, dateStr, onLog }) {
         </div>
       </div>
 
-      <div className="task-item-progress">
+      <div className="task-item-progress" onClick={(e) => e.stopPropagation()}>
         {task.targetType === 'time' ? (
           <div className="task-counter" style={{ padding: '4px 6px', gap: 6 }}>
             <input

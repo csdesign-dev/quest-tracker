@@ -10,6 +10,7 @@ const timeOptions = Array.from({ length: 120 }, (_, i) => (i + 1) * 5);
 
 const emptyTask = {
   name: '',
+  description: '',
   type: 'daily',
   icon: 'Star',
   category: "Здоров'я",
@@ -23,6 +24,7 @@ const emptyTask = {
   bonusTiers: [],
   deadline: null,
   challengeType: 'date',
+  challengeStartDate: format(new Date(), 'yyyy-MM-dd'),
   rewardStrategy: 'per_completion',
   durationDays: 30,
   durationWeeks: 4,
@@ -33,12 +35,15 @@ const emptyTask = {
   bonusDates: [],
 };
 
+import TaskDetailsModal from './TaskDetailsModal';
+
 export default function TaskManager({ tasks, addTask, updateTask, deleteTask, reorderTasks }) {
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [formData, setFormData] = useState({ ...emptyTask });
   const [filterType, setFilterType] = useState('all');
   const [quickAddText, setQuickAddText] = useState('');
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState(null);
 
   const handleTogglePause = (task) => {
     const isPausing = task.status !== 'paused';
@@ -425,7 +430,9 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                         <DynamicIcon name={task.icon} size={16} />
                       </div>
                     </td>
-                    <td style={{ fontWeight: 600 }}>{task.name}</td>
+                    <td style={{ fontWeight: 600, cursor: 'pointer' }} onClick={() => setSelectedTaskForDetails(task)}>
+                      {task.name}
+                    </td>
                     <td><span className={`badge badge-${task.type}`}>{
                       TASK_TYPES.find(t => t.value === task.type)?.label || task.type
                     }</span></td>
@@ -557,7 +564,9 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                       <DynamicIcon name={task.icon} size={16} />
                     </div>
                   </td>
-                  <td style={{ fontWeight: 600 }}>{task.name}</td>
+                  <td style={{ fontWeight: 600, cursor: 'pointer' }} onClick={() => setSelectedTaskForDetails(task)}>
+                    {task.name}
+                  </td>
                   <td><span className={`badge badge-${task.type}`}>{
                     TASK_TYPES.find(t => t.value === task.type)?.label || task.type
                   }</span></td>
@@ -643,6 +652,18 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                     autoFocus
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Опис (Детальніше)</label>
+                  <textarea
+                    className="form-input"
+                    rows="3"
+                    placeholder="Додаткова інформація про задачу..."
+                    value={formData.description || ''}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    style={{ resize: 'vertical' }}
                   />
                 </div>
 
@@ -910,14 +931,26 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                       </select>
                     </div>
 
+                    <div className="form-group">
+                      <label className="form-label">Дата старту</label>
+                      <input
+                        className="form-input"
+                        type="date"
+                        value={formData.challengeStartDate || ''}
+                        onChange={(e) => setFormData({ ...formData, challengeStartDate: e.target.value })}
+                        required
+                      />
+                    </div>
+
                     {formData.challengeType === 'date' && (
                       <div className="form-group">
-                        <label className="form-label">Дедлайн</label>
+                        <label className="form-label">Дедлайн (До якої дати)</label>
                         <input
                           className="form-input"
                           type="date"
                           value={formData.deadline || ''}
                           onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                          required
                         />
                       </div>
                     )}
@@ -1113,6 +1146,13 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
             </div>
           </div>
         </div>
+      )}
+
+      {selectedTaskForDetails && (
+        <TaskDetailsModal 
+          task={selectedTaskForDetails} 
+          onClose={() => setSelectedTaskForDetails(null)} 
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { format, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, e
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar, Minus, Plus } from 'lucide-react';
 import TaskItem from './TaskItem';
+import TaskDetailsModal from './TaskDetailsModal';
 import DynamicIcon from './DynamicIcon';
 import { getCompletionsInRange } from '../utils/scoring';
 import { formatTime, formatTarget } from '../utils/formatters';
@@ -55,6 +56,7 @@ const InlineTimeCounter = ({ completions, target, onLog, isLimit, exceeded }) =>
 
 export default function TodayView({ tasks, logCompletion }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState(null);
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const dateLabel = format(selectedDate, "EEEE, d MMMM yyyy", { locale: uk });
   const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
@@ -72,22 +74,39 @@ export default function TodayView({ tasks, logCompletion }) {
 
   const isChallengeActiveOnDate = (task, dateToCheck) => {
     if (!task.enabled || task.status === 'paused' || task.status === 'archived') return false;
-    if (!task.createdAt) return true;
     
-    // Convert strings to dates for comparison
+    // Use challengeStartDate if available, otherwise fallback to createdAt
+    const startStr = task.challengeStartDate || task.createdAt;
+    if (!startStr) return true;
+    
     const checkDate = new Date(dateToCheck);
-    const startDate = new Date(task.createdAt);
+    const startDate = new Date(startStr);
     
-    // Ignore time portion
     checkDate.setHours(0, 0, 0, 0);
     startDate.setHours(0, 0, 0, 0);
     
     if (checkDate < startDate) return false; // Before challenge started
     
+    if (task.challengeType === 'date') {
+      if (!task.deadline) return true;
+      const deadlineDate = new Date(task.deadline);
+      deadlineDate.setHours(0, 0, 0, 0);
+      return checkDate <= deadlineDate;
+    }
+    
     const daysSinceStart = Math.floor((checkDate - startDate) / (1000 * 60 * 60 * 24));
     
-    let totalDays = task.durationWeeks * 7;
-    return daysSinceStart < totalDays;
+    if (task.challengeType === 'daily_streak') {
+      const duration = task.durationDays || 30;
+      return daysSinceStart < duration;
+    }
+    
+    if (task.challengeType === 'weekly_recurrent') {
+      const duration = task.durationWeeks || 4;
+      return daysSinceStart < duration * 7;
+    }
+    
+    return true;
   };
 
   const isValidForPeriod = (task, periodEnd) => {
@@ -201,7 +220,7 @@ export default function TodayView({ tasks, logCompletion }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {dailyTasks.map(task => (
-              <TaskItem key={task.id} task={task} dateStr={dateStr} onLog={logCompletion} />
+              <TaskItem key={task.id} task={task} dateStr={dateStr} onLog={logCompletion} onTaskClick={setSelectedTaskForDetails} />
             ))}
           </div>
         </div>
@@ -221,7 +240,7 @@ export default function TodayView({ tasks, logCompletion }) {
               const weeklyCompletions = getCompletionsInRange(task, weekStart, weekEnd);
               const todayCompletions = task.completions?.[dateStr] || 0;
               return (
-                <div key={task.id} className="task-item">
+                <div key={task.id} className="task-item" onClick={() => setSelectedTaskForDetails(task)} style={{ cursor: 'pointer' }}>
                   <div className={`task-item-icon weekly`}>
                     <DynamicIcon name={task.icon} size={20} />
                   </div>
@@ -252,7 +271,7 @@ export default function TodayView({ tasks, logCompletion }) {
                       </div>
                     )}
                   </div>
-                  <div className="task-item-progress">
+                  <div className="task-item-progress" onClick={(e) => e.stopPropagation()}>
                     {task.targetType === 'time' ? (
                       <InlineTimeCounter 
                         completions={todayCompletions} 
@@ -297,7 +316,7 @@ export default function TodayView({ tasks, logCompletion }) {
             {monthlyTasks.map(task => {
               const monthlyCompletions = getCompletionsInRange(task, monthStart, monthEnd);
               return (
-                <div key={task.id} className="task-item">
+                <div key={task.id} className="task-item" onClick={() => setSelectedTaskForDetails(task)} style={{ cursor: 'pointer' }}>
                   <div className={`task-item-icon monthly`}>
                     <span style={{ fontSize: 18 }}>📊</span>
                   </div>
@@ -316,7 +335,7 @@ export default function TodayView({ tasks, logCompletion }) {
                       </div>
                     </div>
                   </div>
-                  <div className="task-item-progress">
+                  <div className="task-item-progress" onClick={(e) => e.stopPropagation()}>
                     <div className="task-counter">
                       <button className="task-counter-btn" onClick={() => handleLog(task, -1)}
                         disabled={(task.completions?.[dateStr] || 0) <= 0}>
@@ -344,7 +363,7 @@ export default function TodayView({ tasks, logCompletion }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {bonusTasks.map(task => (
-              <TaskItem key={task.id} task={task} dateStr={dateStr} onLog={logCompletion} />
+              <TaskItem key={task.id} task={task} dateStr={dateStr} onLog={logCompletion} onTaskClick={setSelectedTaskForDetails} />
             ))}
           </div>
         </div>
@@ -366,7 +385,7 @@ export default function TodayView({ tasks, logCompletion }) {
               const limit = task.target || 1;
               const exceeded = weeklyCompletions > limit;
               return (
-                <div key={task.id} className="task-item" style={exceeded ? { borderColor: 'rgba(239,68,68,0.3)' } : {}}>
+                <div key={task.id} className="task-item" style={{ ...(exceeded ? { borderColor: 'rgba(239,68,68,0.3)' } : {}), cursor: 'pointer' }} onClick={() => setSelectedTaskForDetails(task)}>
                   <div className={`task-item-icon limit`}>
                     <DynamicIcon name={task.icon} size={20} />
                   </div>
@@ -389,7 +408,7 @@ export default function TodayView({ tasks, logCompletion }) {
                       </div>
                     </div>
                   </div>
-                  <div className="task-item-progress">
+                  <div className="task-item-progress" onClick={(e) => e.stopPropagation()}>
                     {task.targetType === 'time' ? (
                       <InlineTimeCounter 
                         completions={todayCompletions} 
@@ -435,7 +454,8 @@ export default function TodayView({ tasks, logCompletion }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {challengeTasks.map(task => {
-              const taskStartDate = startOfDay(new Date(task.createdAt || dateStr));
+              const startStr = task.challengeStartDate || task.createdAt || dateStr;
+              const taskStartDate = startOfDay(new Date(startStr));
               const currentDate = startOfDay(new Date(dateStr));
               
               let metaText = '';
@@ -451,9 +471,9 @@ export default function TodayView({ tasks, logCompletion }) {
 
               return (
                 <div key={task.id} style={{ position: 'relative' }}>
-                  <TaskItem task={task} dateStr={dateStr} onLog={logCompletion} />
+                  <TaskItem task={task} dateStr={dateStr} onLog={logCompletion} onTaskClick={setSelectedTaskForDetails} />
                   {metaText && (
-                    <div style={{ position: 'absolute', top: 4, right: 4, fontSize: 10, color: 'var(--color-primary)', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                     <div style={{ position: 'absolute', top: 4, right: 4, fontSize: 10, color: 'var(--color-primary)', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
                       {metaText}
                     </div>
                   )}
@@ -462,6 +482,13 @@ export default function TodayView({ tasks, logCompletion }) {
             })}
           </div>
         </div>
+      )}
+
+      {selectedTaskForDetails && (
+        <TaskDetailsModal 
+          task={selectedTaskForDetails} 
+          onClose={() => setSelectedTaskForDetails(null)} 
+        />
       )}
     </div>
   );
