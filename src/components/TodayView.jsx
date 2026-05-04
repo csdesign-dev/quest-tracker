@@ -8,15 +8,15 @@ import { getCompletionsInRange } from '../utils/scoring';
 import { formatTime, formatTarget } from '../utils/formatters';
 
 const InlineTimeCounter = ({ completions, target, onLog, isLimit, exceeded }) => {
-  const [timeInput, setTimeInput] = useState(15);
+  const [timeInput, setTimeInput] = useState(5);
   return (
     <div className="task-counter" style={{ padding: '4px 6px', gap: 6 }}>
       <input
         type="number"
         step="5"
-        min="1"
+        min="5"
         value={timeInput}
-        onChange={(e) => setTimeInput(Math.max(1, Number(e.target.value)))}
+        onChange={(e) => setTimeInput(Math.max(5, Number(e.target.value)))}
         style={{
           width: 46,
           background: 'var(--bg-secondary)',

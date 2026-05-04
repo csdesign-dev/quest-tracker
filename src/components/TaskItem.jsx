@@ -4,7 +4,7 @@ import DynamicIcon from './DynamicIcon';
 import { formatTime, formatTarget } from '../utils/formatters';
 
 export default function TaskItem({ task, dateStr, onLog }) {
-  const [timeInput, setTimeInput] = useState(15);
+  const [timeInput, setTimeInput] = useState(5);
   const completions = task.completions?.[dateStr] || 0;
   const target = task.target || 1;
   const isLimit = task.type === 'limit';
@@ -61,9 +61,9 @@ export default function TaskItem({ task, dateStr, onLog }) {
             <input
               type="number"
               step="5"
-              min="1"
+              min="5"
               value={timeInput}
-              onChange={(e) => setTimeInput(Math.max(1, Number(e.target.value)))}
+              onChange={(e) => setTimeInput(Math.max(5, Number(e.target.value)))}
               style={{
                 width: 46,
                 background: 'var(--bg-secondary)',
