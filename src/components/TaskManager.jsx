@@ -762,7 +762,11 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
 
                 {formData.type === 'bonus' && (() => {
                   const dates = formData.bonusDates || (formData.bonusDate ? [formData.bonusDate] : []);
-                  const hasSchedule = dates.length > 0;
+                  // Use _isBonusScheduled if defined, otherwise infer from dates array
+                  const hasSchedule = formData._isBonusScheduled !== undefined 
+                    ? formData._isBonusScheduled 
+                    : dates.length > 0;
+                    
                   return (
                   <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: hasSchedule ? 12 : 0 }}>
@@ -770,10 +774,21 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                         type="checkbox"
                         checked={hasSchedule}
                         onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, bonusDates: [format(new Date(), 'yyyy-MM-dd')], bonusDate: undefined });
+                          const isChecked = e.target.checked;
+                          if (isChecked) {
+                            setFormData({ 
+                              ...formData, 
+                              _isBonusScheduled: true,
+                              bonusDates: dates.length === 0 ? [format(new Date(), 'yyyy-MM-dd')] : dates,
+                              bonusDate: undefined 
+                            });
                           } else {
-                            setFormData({ ...formData, bonusDates: [], bonusDate: undefined });
+                            setFormData({ 
+                              ...formData, 
+                              _isBonusScheduled: false,
+                              bonusDates: [], 
+                              bonusDate: undefined 
+                            });
                           }
                         }}
                         style={{ width: 16, height: 16 }}
@@ -791,7 +806,7 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                                 type="button"
                                 onClick={() => {
                                   const updated = dates.filter(x => x !== d);
-                                  setFormData({ ...formData, bonusDates: updated, bonusDate: undefined });
+                                  setFormData({ ...formData, bonusDates: updated, bonusDate: undefined, _isBonusScheduled: true });
                                 }}
                                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '0 0 0 2px', fontSize: 15, lineHeight: 1 }}
                               >×</button>
@@ -812,7 +827,13 @@ export default function TaskManager({ tasks, addTask, updateTask, deleteTask, re
                             onClick={() => {
                               const val = formData._bonusDateInput;
                               if (val && !dates.includes(val)) {
-                                setFormData({ ...formData, bonusDates: [...dates, val], bonusDate: undefined, _bonusDateInput: '' });
+                                setFormData({ 
+                                  ...formData, 
+                                  bonusDates: [...dates, val], 
+                                  bonusDate: undefined, 
+                                  _bonusDateInput: '',
+                                  _isBonusScheduled: true
+                                });
                               }
                             }}
                           >+ Додати</button>
