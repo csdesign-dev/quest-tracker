@@ -87,7 +87,7 @@ export function getCompletionsInRange(task, startDate, endDate) {
  * Calculate score for a DAILY task for a single day
  * @param {boolean} isCurrentDay - if true, don't apply penalty (day not over yet)
  */
-function scoreDailyForDay(task, dateStr, isCurrentDay = false) {
+export function scoreDailyForDay(task, dateStr, isCurrentDay = false) {
   const pauseStatus = isTaskPausedOnDate(task, dateStr);
   if (pauseStatus.paused) return 0;
 
@@ -117,7 +117,7 @@ function scoreDailyForDay(task, dateStr, isCurrentDay = false) {
 /**
  * Calculate score for a WEEKLY task for a given week
  */
-function scoreWeeklyForWeek(task, weekStart, weekEnd) {
+export function scoreWeeklyForWeek(task, weekStart, weekEnd) {
   const pauseStatus = isTaskPausedForPeriod(task, weekStart, weekEnd);
   if (pauseStatus.paused) return 0;
 

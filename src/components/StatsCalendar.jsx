@@ -3,12 +3,13 @@ import {
   format, addMonths, subMonths, addWeeks, subWeeks,
   startOfMonth, endOfMonth, 
   eachWeekOfInterval, eachDayOfInterval, startOfWeek, endOfWeek, 
-  isSameMonth, isToday, getDay
+  isSameMonth, isToday, getDay, isBefore, startOfDay
 } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import DynamicIcon from './DynamicIcon';
 import { formatTime } from '../utils/formatters';
+import { scoreDailyForDay, scoreWeeklyForWeek, isTaskPausedOnDate } from '../utils/scoring';
 
 const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 
@@ -61,6 +62,39 @@ export default function StatsCalendar({ tasks }) {
       ...otherCompleted.map(t => ({ ...t, _kind: 'other' })),
     ];
 
+    let dayEarned = 0;
+    let dayPotential = 0;
+    const currentIsToday = isToday(day);
+
+    allItems.forEach(task => {
+      if (task.status === 'paused' || isTaskPausedOnDate(task, dateStr).paused) return;
+      const completed = task.completions?.[dateStr] || 0;
+      const target = task.target || 1;
+
+      if (task._kind === 'daily') {
+        const score = scoreDailyForDay(task, dateStr, currentIsToday);
+        if (score > 0) dayEarned += score; // Only positive earned for display? Or net? Let's use net earned.
+        else if (score < 0) dayEarned += score;
+
+        let p = task.rewardPoints || 0;
+        if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
+        dayPotential += p;
+      } else if (task._kind === 'weekly-day' || task._kind === 'bonus') {
+        if (completed >= target) {
+           let pts = task.rewardPoints || 0;
+           if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (completed >= tier.threshold) pts += tier.points; });
+           dayEarned += pts;
+        } else if (task._kind === 'bonus') {
+           dayEarned += completed * (task.rewardPoints || 0);
+        }
+        
+        let p = task.rewardPoints || 0;
+        if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
+        // Bonus tasks only add to potential if it's explicitly scheduled here
+        dayPotential += p;
+      }
+    });
+
     return (
       <div 
         key={dateStr} 
@@ -70,21 +104,23 @@ export default function StatsCalendar({ tasks }) {
           padding: viewMode === 'week' ? 10 : 6,
           minHeight: viewMode === 'week' ? 160 : 100,
           opacity: isCurrentMonth ? 1 : 0.35,
-          border: isToday(day) ? '2px solid var(--color-primary)' : '1px solid rgba(255,255,255,0.05)',
+          border: currentIsToday ? '2px solid var(--color-primary)' : '1px solid rgba(255,255,255,0.05)',
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         <div style={{ 
           textAlign: 'right', 
           fontSize: viewMode === 'week' ? 13 : 11, 
           fontWeight: 600, 
-          color: isToday(day) ? 'var(--color-primary)' : 'var(--text-secondary)', 
+          color: currentIsToday ? 'var(--color-primary)' : 'var(--text-secondary)', 
           marginBottom: viewMode === 'week' ? 8 : 4 
         }}>
           {format(day, 'd')}
         </div>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: viewMode === 'week' ? 4 : 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: viewMode === 'week' ? 4 : 2, flex: 1 }}>
           {allItems.map(task => {
             const completed = task.completions?.[dateStr] || 0;
             const target = task.target || 1;
@@ -123,6 +159,26 @@ export default function StatsCalendar({ tasks }) {
             );
           })}
         </div>
+        
+        {/* Daily Points Summary */}
+        <div style={{ 
+          marginTop: 8,
+          paddingTop: 8,
+          borderTop: '1px solid rgba(255,255,255,0.05)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: viewMode === 'week' ? 11 : 9,
+          color: 'var(--text-muted)'
+        }}>
+          <span>Бали:</span>
+          <span style={{ 
+            fontWeight: 600, 
+            color: dayEarned >= dayPotential && dayPotential > 0 ? 'var(--color-success-light)' : dayEarned < 0 ? 'var(--color-danger)' : 'var(--text-primary)' 
+          }}>
+            {dayEarned} / {dayPotential}
+          </span>
+        </div>
       </div>
     );
   };
@@ -138,6 +194,9 @@ export default function StatsCalendar({ tasks }) {
 
     if (generalWeeklyTasks.length === 0) return null;
 
+    let weeklyEarned = 0;
+    let weeklyPotential = 0;
+
     return (
       <div style={{ 
         background: 'rgba(59,130,246,0.05)', 
@@ -149,6 +208,20 @@ export default function StatsCalendar({ tasks }) {
             const weeklyCompletions = days.reduce((sum, day) => sum + (task.completions?.[format(day, 'yyyy-MM-dd')] || 0), 0);
             const target = task.target || 1;
             const isDone = weeklyCompletions >= target;
+
+            // Compute points
+            let maxP = task.rewardPoints || 0;
+            if (task.bonusTiers) task.bonusTiers.forEach(tier => maxP += tier.points);
+            weeklyPotential += maxP;
+
+            if (isDone) {
+              let p = task.rewardPoints || 0;
+              if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (weeklyCompletions >= tier.threshold) p += tier.points; });
+              weeklyEarned += p;
+            } else if (isBefore(weekEnd, startOfDay(new Date())) && task.penaltyPoints) {
+               // Only count penalty if week is over
+               weeklyEarned += task.penaltyPoints;
+            }
 
             return (
               <div key={task.id} style={{ 
@@ -167,8 +240,113 @@ export default function StatsCalendar({ tasks }) {
             );
           })}
         </div>
+        
+        {/* Weekly Points Summary */}
+        <div style={{ 
+          marginTop: 8,
+          paddingTop: 8,
+          borderTop: '1px solid rgba(59,130,246,0.1)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          fontSize: 12,
+          color: 'var(--color-primary-light)'
+        }}>
+          <span style={{ marginRight: 8 }}>Бали за тижневі задачі:</span>
+          <span style={{ 
+            fontWeight: 600, 
+            color: weeklyEarned >= weeklyPotential && weeklyPotential > 0 ? 'var(--color-success-light)' : weeklyEarned < 0 ? 'var(--color-danger)' : 'var(--text-primary)' 
+          }}>
+            {weeklyEarned} / {weeklyPotential}
+          </span>
+        </div>
       </div>
     );
+  };
+
+  const getWeekTotalScore = (days) => {
+    let earned = 0;
+    let potential = 0;
+    
+    // Sum from all 7 days
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const dayOfWeek = getDay(day);
+      const currentIsToday = isToday(day);
+      
+      const dayDailyTasks = dailyTasks.filter(t => isTaskValidOnDate(t, dateStr));
+      const dayBonusTasks = bonusTasks.filter(t => {
+        if (!isTaskValidOnDate(t, dateStr)) return false;
+        const dates = t.bonusDates || (t.bonusDate ? [t.bonusDate] : []);
+        if (dates.length > 0) return dates.includes(dateStr);
+        return true;
+      });
+      const dayWeeklyTasks = weeklyTasks.filter(t => {
+        if (!isTaskValidOnDate(t, dateStr)) return false;
+        return t.daysOfWeek && t.daysOfWeek.length > 0 && t.daysOfWeek.includes(dayOfWeek);
+      });
+      
+      const allItems = [
+        ...dayDailyTasks.map(t => ({ ...t, _kind: 'daily' })),
+        ...dayWeeklyTasks.map(t => ({ ...t, _kind: 'weekly-day' })),
+        ...dayBonusTasks.map(t => ({ ...t, _kind: 'bonus' }))
+      ];
+      
+      allItems.forEach(task => {
+        if (task.status === 'paused' || isTaskPausedOnDate(task, dateStr).paused) return;
+        const completed = task.completions?.[dateStr] || 0;
+        const target = task.target || 1;
+
+        if (task._kind === 'daily') {
+          const score = scoreDailyForDay(task, dateStr, currentIsToday);
+          if (score > 0) earned += score;
+          else if (score < 0) earned += score;
+
+          let p = task.rewardPoints || 0;
+          if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
+          potential += p;
+        } else if (task._kind === 'weekly-day' || task._kind === 'bonus') {
+          if (completed >= target) {
+            let pts = task.rewardPoints || 0;
+            if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (completed >= tier.threshold) pts += tier.points; });
+            earned += pts;
+          } else if (task._kind === 'bonus') {
+            earned += completed * (task.rewardPoints || 0);
+          }
+          
+          let p = task.rewardPoints || 0;
+          if (task.bonusTiers) task.bonusTiers.forEach(tier => p += tier.points);
+          potential += p;
+        }
+      });
+    });
+
+    // Add weekly general tasks
+    const weekEnd = days[6];
+    const generalWeeklyTasks = weeklyTasks.filter(t => {
+      if (!isTaskValidOnDate(t, format(weekEnd, 'yyyy-MM-dd'))) return false;
+      return !t.daysOfWeek || t.daysOfWeek.length === 0;
+    });
+
+    generalWeeklyTasks.forEach(task => {
+      const weeklyCompletions = days.reduce((sum, day) => sum + (task.completions?.[format(day, 'yyyy-MM-dd')] || 0), 0);
+      const target = task.target || 1;
+      const isDone = weeklyCompletions >= target;
+
+      let maxP = task.rewardPoints || 0;
+      if (task.bonusTiers) task.bonusTiers.forEach(tier => maxP += tier.points);
+      potential += maxP;
+
+      if (isDone) {
+        let p = task.rewardPoints || 0;
+        if (task.bonusTiers) task.bonusTiers.forEach(tier => { if (weeklyCompletions >= tier.threshold) p += tier.points; });
+        earned += p;
+      } else if (isBefore(weekEnd, startOfDay(new Date())) && task.penaltyPoints) {
+         earned += task.penaltyPoints;
+      }
+    });
+
+    return { earned, potential };
   };
 
   // ----- WEEKLY VIEW -----
@@ -199,6 +377,32 @@ export default function StatsCalendar({ tasks }) {
 
         {/* Weekly tasks bar */}
         {renderWeeklyBar(days)}
+
+        {/* Total Score for the week */}
+        {(() => {
+          const { earned, potential } = getWeekTotalScore(days);
+          return (
+            <div style={{ 
+              marginTop: 12,
+              padding: '12px 16px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: 8,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontWeight: 600
+            }}>
+              <span>Загальний рахунок за тиждень:</span>
+              <span style={{ 
+                color: earned >= potential && potential > 0 ? 'var(--color-success)' : earned < 0 ? 'var(--color-danger)' : 'var(--text-primary)',
+                fontSize: 16
+              }}>
+                ★ {earned} / {potential}
+              </span>
+            </div>
+          );
+        })()}
       </>
     );
   };
@@ -238,6 +442,32 @@ export default function StatsCalendar({ tasks }) {
                   {days.map(day => renderDayCell(day, isSameMonth(day, currentDate)))}
                 </div>
                 {renderWeeklyBar(days)}
+                
+                {/* Total Score for the week */}
+                {(() => {
+                  const { earned, potential } = getWeekTotalScore(days);
+                  return (
+                    <div style={{ 
+                      marginTop: 8,
+                      padding: '8px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      borderRadius: 8,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontWeight: 600,
+                      fontSize: 13
+                    }}>
+                      <span>Підсумок тижня:</span>
+                      <span style={{ 
+                        color: earned >= potential && potential > 0 ? 'var(--color-success)' : earned < 0 ? 'var(--color-danger)' : 'var(--text-primary)'
+                      }}>
+                        ★ {earned} / {potential}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
