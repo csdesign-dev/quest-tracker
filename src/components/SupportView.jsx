@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
   HelpCircle, ChevronDown, ChevronUp, MessageSquare, Send,
-  Info, Trash2, Database, RefreshCw, Mail, AlertTriangle
+  Info, Trash2, Database, RefreshCw, Mail, AlertTriangle, Cloud, HardDrive
 } from 'lucide-react';
+import { supabase } from '../utils/supabase';
+import { getActiveProfileId, getBackupList, restoreFromBackup } from '../utils/storage';
 
 const FAQ_ITEMS = [
   {
@@ -74,6 +76,67 @@ export default function SupportView() {
 
   const [isSending, setIsSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Recovery State
+  const [cloudBackups, setCloudBackups] = useState([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+
+  const fetchCloudBackups = async () => {
+    if (!supabase) return;
+    setIsLoadingBackups(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user) {
+        setIsLoadingBackups(false);
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('cloud_sync')
+        .select('updated_at, profile_id, tasks_data')
+        .eq('user_id', user.user.id)
+        .order('updated_at', { ascending: false });
+        
+      if (!error && data) {
+        setCloudBackups(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsLoadingBackups(false);
+  };
+
+  const handleRestoreCloud = (backup) => {
+    if (!backup?.tasks_data) return;
+    const count = Array.isArray(backup.tasks_data) ? backup.tasks_data.length : 0;
+    if (confirm(`Відновити ${count} задач з хмари (від ${new Date(backup.updated_at).toLocaleString()})?\nПоточні задачі будуть перезаписані.`)) {
+      const profileId = getActiveProfileId();
+      if (profileId) {
+        localStorage.setItem(`quest-tracker-tasks-${profileId}`, JSON.stringify(backup.tasks_data));
+        alert(`Відновлено ${count} задач!`);
+        window.location.reload();
+      } else {
+        alert('Помилка: не знайдено активний профіль.');
+      }
+    }
+  };
+
+  const localBackups = getBackupList(getActiveProfileId());
+  
+  const handleRestoreLocal = () => {
+    const profileId = getActiveProfileId();
+    if (!profileId) return;
+    const restored = restoreFromBackup(profileId);
+    if (restored) {
+      if (confirm(`Відновити ${restored.length} задач з останнього локального бекапу?\nПоточні задачі будуть перезаписані.`)) {
+        localStorage.setItem(`quest-tracker-tasks-${profileId}`, JSON.stringify(restored));
+        alert(`Відновлено ${restored.length} задач!`);
+        window.location.reload();
+      }
+    } else {
+      alert('Локальний бекап не знайдено.');
+    }
+  };
 
   const handleSubmitFeedback = async (e) => {
     e.preventDefault();
@@ -305,6 +368,84 @@ export default function SupportView() {
           <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textAlign: 'center', marginTop: 'var(--space-sm)' }}>
             <Mail size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
             Підтримка: crabsstudiodesign@gmail.com
+          </div>
+        </div>
+      </div>
+
+      {/* Data Recovery */}
+      <div className="card" style={{ marginTop: 'var(--space-lg)', border: '1px solid rgba(245,158,11,0.3)' }}>
+        <div className="card-header">
+          <span className="card-title" style={{ color: '#fbbf24' }}>
+            <Database size={18} style={{ marginRight: 6 }} />
+            Відновлення даних
+          </span>
+        </div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <p style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+            Якщо ваші задачі зникли, ви можете спробувати відновити їх з хмарного або локального бекапу.
+          </p>
+
+          {/* Local Recovery */}
+          <div style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <HardDrive size={16} /> Локальний бекап
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={handleRestoreLocal} disabled={localBackups.length === 0}>
+                Відновити
+              </button>
+            </div>
+            {localBackups.length > 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                Доступно: {localBackups.map(b => `${b.date} (${b.taskCount} задач)`).join(', ')}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Бекапи відсутні</div>
+            )}
+          </div>
+
+          {/* Cloud Recovery */}
+          <div style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Cloud size={16} /> Хмарний бекап
+              </div>
+              <button className="btn btn-primary btn-sm" onClick={fetchCloudBackups} disabled={isLoadingBackups || !supabase}>
+                {isLoadingBackups ? 'Пошук...' : 'Знайти в хмарі'}
+              </button>
+            </div>
+
+            {cloudBackups.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {cloudBackups.map((b, i) => {
+                  const isDefaultSize = Array.isArray(b.tasks_data) && b.tasks_data.length <= 15;
+                  return (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>
+                          Збереження {i + 1}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          {new Date(b.updated_at).toLocaleString()} • {Array.isArray(b.tasks_data) ? b.tasks_data.length : 0} задач
+                          {isDefaultSize && <span style={{ color: 'var(--color-danger)', marginLeft: 6 }}>(Схоже на пустий профіль)</span>}
+                          {!isDefaultSize && <span style={{ color: 'var(--color-success)', marginLeft: 6 }}>(Ваші дані!)</span>}
+                        </div>
+                      </div>
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleRestoreCloud(b)}>
+                        Відновити
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {!supabase && (
+              <div style={{ fontSize: 13, color: 'var(--color-warning)' }}>
+                Хмарна синхронізація не налаштована.
+              </div>
+            )}
           </div>
         </div>
       </div>
