@@ -9,6 +9,7 @@ import {
   loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
   loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId,
   createProfile, deleteProfile, migrateOldData,
+  createDailyBackup, restoreFromBackup
 } from './utils/storage';
 import { pushData, pullData } from './utils/sync';
 import { getFamilyTasks, getFamilyApprovals, submitTaskCompletion } from './utils/family';
