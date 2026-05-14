@@ -94,6 +94,37 @@ export default function App() {
   });
   
   const [familyTasksData, setFamilyTasksData] = useState([]);
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+
+  // Force restore from cloud (bypasses profile_id matching)
+  const forceRestoreFromCloud = async () => {
+    if (!supabase || !session) return;
+    setIsRecovering(true);
+    try {
+      const { data, error } = await supabase
+        .from('cloud_sync')
+        .select('tasks_data')
+        .eq('user_id', session.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (!error && data?.tasks_data && Array.isArray(data.tasks_data) && data.tasks_data.length > 0) {
+        setTasks(data.tasks_data);
+        saveTasks(data.tasks_data, currentProfileId);
+        createDailyBackup(data.tasks_data, currentProfileId);
+        setShowRecoveryBanner(false);
+        alert(`\u2705 \u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e ${data.tasks_data.length} \u0437\u0430\u0434\u0430\u0447!`);
+      } else {
+        alert('\u274c \u0414\u0430\u043d\u0456 \u0432 \u0445\u043c\u0430\u0440\u0456 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e.');
+      }
+    } catch (err) {
+      console.error('Recovery failed:', err);
+      alert('\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0432\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f: ' + err.message);
+    }
+    setIsRecovering(false);
+  };
 
   // Reload tasks when profile or session changes
   useEffect(() => {
@@ -113,38 +144,65 @@ export default function App() {
       // Cloud Sync Pull (Local-First)
       const syncPull = async () => {
         setIsSyncing(true);
-        const cloudTasks = await pullData(currentProfileId);
-        if (cloudTasks && Array.isArray(cloudTasks) && cloudTasks.length > 0) {
-          setTasks(cloudTasks); // Оновлюємо стейт, і він автоматично збережеться в localStorage
+        try {
+          const cloudTasks = await pullData(currentProfileId);
+          if (cloudTasks && Array.isArray(cloudTasks) && cloudTasks.length > 0) {
+            setTasks(cloudTasks);
+            setShowRecoveryBanner(false);
+          } else if (session) {
+            // pullData failed with profile_id, try without it
+            const { data } = await supabase
+              .from('cloud_sync')
+              .select('tasks_data')
+              .eq('user_id', session.user.id)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .single();
+            if (data?.tasks_data && Array.isArray(data.tasks_data) && data.tasks_data.length > 0) {
+              setTasks(data.tasks_data);
+              saveTasks(data.tasks_data, currentProfileId);
+              setShowRecoveryBanner(false);
+            } else {
+              // Check if current tasks are defaults — show recovery banner
+              const localTasks = loadTasks(currentProfileId);
+              const isDefault = !localTasks || localTasks.length === defaultTasks.length;
+              if (isDefault && session) setShowRecoveryBanner(true);
+            }
+          }
+        } catch(err) {
+          console.error('SyncPull error:', err);
+          if (session) setShowRecoveryBanner(true);
         }
         
         // Fetch family tasks and their approvals
         if (session) {
-          const { data: ft } = await getFamilyTasks();
-          if (ft && ft.length > 0) {
-            const taskIds = ft.map(t => t.id);
-            const { data: approvals } = await getFamilyApprovals(taskIds);
-            
-            // Transform family tasks to look like regular tasks
-            const transformed = ft.map(t => {
-              const taskObj = { ...t.task_data, id: t.id, isFamilyTask: true, parentalControl: t.parental_control, completions: {}, approvalStatus: {} };
+          try {
+            const { data: ft } = await getFamilyTasks();
+            if (ft && ft.length > 0) {
+              const taskIds = ft.map(t => t.id);
+              const { data: approvals } = await getFamilyApprovals(taskIds);
               
-              // Map approvals into completions and status
-              approvals.forEach(a => {
-                if (a.family_task_id === t.id) {
-                  if (a.status === 'approved' || !t.parental_control) {
-                    taskObj.completions[a.date] = a.completion_count;
+              const transformed = ft.map(t => {
+                const taskObj = { ...t.task_data, id: t.id, isFamilyTask: true, parentalControl: t.parental_control, completions: {}, approvalStatus: {} };
+                
+                (approvals || []).forEach(a => {
+                  if (a.family_task_id === t.id) {
+                    if (a.status === 'approved' || !t.parental_control) {
+                      taskObj.completions[a.date] = a.completion_count;
+                    }
+                    taskObj.approvalStatus[a.date] = a.status;
                   }
-                  taskObj.approvalStatus[a.date] = a.status;
-                }
+                });
+                
+                return taskObj;
               });
               
-              return taskObj;
-            });
-            
-            setFamilyTasksData(transformed);
-          } else {
-            setFamilyTasksData([]);
+              setFamilyTasksData(transformed);
+            } else {
+              setFamilyTasksData([]);
+            }
+          } catch(err) {
+            console.error('Family tasks error:', err);
           }
         }
         
@@ -434,6 +492,38 @@ export default function App() {
 
       {/* Main Content */}
       <main className="main-content">
+        {showRecoveryBanner && (
+          <div style={{
+            padding: '16px 20px', marginBottom: 16, borderRadius: 12,
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.1))',
+            border: '1px solid rgba(245,158,11,0.3)',
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap'
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#fbbf24', marginBottom: 4 }}>
+                ⚠️ Задачі могли бути втрачені
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                Ваші дані є в хмарі. Натисніть кнопку для відновлення.
+              </div>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={forceRestoreFromCloud}
+              disabled={isRecovering}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {isRecovering ? '⏳ Відновлення...' : '☁️ Відновити з хмари'}
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => setShowRecoveryBanner(false)}
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
         {renderPage()}
       </main>
 
