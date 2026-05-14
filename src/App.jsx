@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import {
   LayoutDashboard, CalendarCheck, BarChart3, ListTodo, Zap, Menu, X,
-  Download, Upload, LogOut, User, HelpCircle, RefreshCw
+  Download, Upload, LogOut, User, HelpCircle, RefreshCw, Users
 } from 'lucide-react';
 import {
   loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
@@ -20,12 +20,14 @@ import TaskManager from './components/TaskManager';
 import ProfileSelector from './components/ProfileSelector';
 import SupportView from './components/SupportView';
 import AuthScreen from './components/AuthScreen';
+import FamilyView from './components/FamilyView';
 import { supabase } from './utils/supabase';
 
 const NAV_ITEMS = [
   { id: 'today', label: 'Сьогодні', icon: CalendarCheck },
   { id: 'stats', label: 'Статистика', icon: BarChart3 },
   { id: 'tasks', label: 'Задачі', icon: ListTodo },
+  { id: 'family', label: "Сім'я", icon: Users },
   { id: 'support', label: 'Підтримка', icon: HelpCircle },
 ];
 
@@ -293,6 +295,8 @@ export default function App() {
         return <StatsView tasks={tasks} scores={scores} />;
       case 'tasks':
         return <TaskManager tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} reorderTasks={reorderTasks} />;
+      case 'family':
+        return <FamilyView session={session} />;
       case 'support':
         return <SupportView />;
       default:
