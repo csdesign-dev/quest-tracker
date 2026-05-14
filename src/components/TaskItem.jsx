@@ -51,6 +51,11 @@ export default function TaskItem({ task, dateStr, onLog, onTaskClick }) {
             task.type === 'draft' ? 'Вхідні' :
             task.type === 'limit' ? 'Ліміт' : 'Бонус'
           }</span>
+          {task.isFamilyTask && (
+            <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: 'var(--color-primary-light)', marginLeft: 4 }}>
+              Сім'я
+            </span>
+          )}
           <span>
             {task.rewardPoints > 0 && <span className="points-badge points-positive">+{task.rewardPoints}</span>}
             {task.penaltyPoints < 0 && <span className="points-badge points-negative" style={{ marginLeft: 4 }}>{task.penaltyPoints}</span>}
@@ -64,7 +69,26 @@ export default function TaskItem({ task, dateStr, onLog, onTaskClick }) {
       </div>
 
       <div className="task-item-progress" onClick={(e) => e.stopPropagation()}>
-        {task.targetType === 'time' ? (
+        {task.parentalControl ? (
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {task.approvalStatus?.[dateStr] === 'pending' ? (
+              <span style={{ fontSize: 13, color: 'var(--color-warning)', fontWeight: 600, padding: '4px 8px', background: 'rgba(245,158,11,0.1)', borderRadius: 8 }}>
+                ⏳ Очікує
+              </span>
+            ) : task.approvalStatus?.[dateStr] === 'approved' ? (
+              <span style={{ fontSize: 13, color: 'var(--color-success)', fontWeight: 600, padding: '4px 8px', background: 'rgba(16,185,129,0.1)', borderRadius: 8 }}>
+                ✅ Виконано
+              </span>
+            ) : (
+              <button 
+                className="btn btn-sm btn-primary" 
+                onClick={() => onLog(task.id, dateStr, 1)}
+              >
+                Виконати
+              </button>
+            )}
+          </div>
+        ) : task.targetType === 'time' ? (
           <div className="task-counter" style={{ padding: '4px 6px', gap: 6 }}>
             <input
               type="number"

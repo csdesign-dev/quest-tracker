@@ -3,7 +3,10 @@ import {
   Users, UserPlus, Copy, Check, ChevronRight, ChevronLeft,
   Crown, Baby, User, RefreshCw, Trash2, LogOut, X, Shield
 } from 'lucide-react';
-import { createFamily, joinFamily, getMyFamilies, getMemberTasks, updateMemberRole, removeMember, leaveFamily, deleteFamily } from '../utils/family';
+import { 
+  createFamily, joinFamily, getMyFamilies, getMemberTasks, updateMemberRole, removeMember, leaveFamily, deleteFamily,
+  getPendingApprovals, reviewTaskCompletion, createFamilyTask
+} from '../utils/family';
 import { getAllPeriodScores } from '../utils/scoring';
 import DynamicIcon from './DynamicIcon';
 
@@ -27,11 +30,27 @@ export default function FamilyView({ session }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberTasks, setMemberTasks] = useState(null);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  
+  // Pending Approvals
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  
+  // Create Task Modal
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [newTask, setNewTask] = useState({ name: '', type: 'daily', rewardPoints: 1, target: 1, icon: 'CheckCircle' });
+  const [creatingTask, setCreatingTask] = useState(false);
 
   const loadFamilies = useCallback(async () => {
     setLoading(true);
     const { data } = await getMyFamilies();
     setFamilies(data || []);
+    
+    // Load pending approvals if user is a parent
+    const isParent = (data || []).some(f => f.myRole === 'parent');
+    if (isParent) {
+      const { data: approvals } = await getPendingApprovals();
+      setPendingApprovals(approvals || []);
+    }
+    
     setLoading(false);
   }, []);
 
@@ -99,6 +118,48 @@ export default function FamilyView({ session }) {
     loadFamilies();
   };
 
+  const handleCreateTask = async () => {
+    if (!newTask.name.trim() || creatingTask) return;
+    setCreatingTask(true);
+    
+    // Find the family where current user is parent of the selected member
+    // For simplicity, pick the first family they share where I am parent
+    const sharedFamily = families.find(f => f.myRole === 'parent' && f.members.some(m => m.user_id === selectedMember.user_id));
+    if (!sharedFamily) {
+      setError('Не знайдено спільну сім\'ю де ви батько');
+      setCreatingTask(false);
+      return;
+    }
+
+    const { error: err } = await createFamilyTask(
+      sharedFamily.id, 
+      selectedMember.user_id, 
+      newTask.name, 
+      newTask, 
+      true // parentalControl = true
+    );
+
+    if (err) {
+      setError(err);
+    } else {
+      setSuccess('Задачу додано!');
+      setShowCreateTask(false);
+      setNewTask({ name: '', type: 'daily', rewardPoints: 1, target: 1, icon: 'CheckCircle' });
+      // Refresh tasks (since family tasks live in DB, they won't appear in cloud_sync until member pulls, wait, memberTasks shows cloud_sync! So they won't show up here immediately because they are in family_tasks, not cloud_sync. We will fix this in TodayView. For now, it's ok, we just show success.)
+    }
+    setCreatingTask(false);
+  };
+
+  const handleReview = async (approvalId, status) => {
+    const { error: err } = await reviewTaskCompletion(approvalId, status);
+    if (err) {
+      setError(err);
+    } else {
+      setSuccess(status === 'approved' ? 'Задачу підтверджено!' : 'Задачу відхилено.');
+      loadFamilies(); // reload pending approvals
+    }
+  };
+
   if (!session) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: 40 }}>
@@ -155,7 +216,58 @@ export default function FamilyView({ session }) {
               </div>
             )}
           </div>
+          
+          {/* Action buttons inside member profile */}
+          {families.some(f => f.myRole === 'parent' && f.members.some(m => m.user_id === selectedMember.user_id)) && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
+              <button 
+                className="btn btn-primary btn-sm" 
+                style={{ width: '100%' }}
+                onClick={() => setShowCreateTask(true)}
+              >
+                ➕ Створити задачу для дитини
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Create Task Form Modal/Inline */}
+        {showCreateTask && (
+          <div className="card" style={{ marginBottom: 16, border: '1px solid var(--color-primary)' }}>
+            <div className="card-header">
+              <span className="card-title">Нова задача</span>
+              <button className="btn-icon" onClick={() => setShowCreateTask(false)}><X size={16} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input 
+                className="input" 
+                placeholder="Назва (наприклад: Помити посуд)"
+                value={newTask.name}
+                onChange={e => setNewTask({...newTask, name: e.target.value})}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                  Тип
+                  <select className="input" value={newTask.type} onChange={e => setNewTask({...newTask, type: e.target.value})}>
+                    <option value="daily">Щоденна</option>
+                    <option value="weekly">Тижнева</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                  Бали за виконання
+                  <input type="number" className="input" value={newTask.rewardPoints} onChange={e => setNewTask({...newTask, rewardPoints: Number(e.target.value)})} min={1} />
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: 6, padding: '8px 12px', background: 'rgba(245,158,11,0.1)', borderRadius: 8, color: '#d97706', fontSize: 13, alignItems: 'center' }}>
+                <Shield size={16} />
+                Ця задача вимагатиме вашого підтвердження.
+              </div>
+              <button className="btn btn-primary" onClick={handleCreateTask} disabled={creatingTask}>
+                {creatingTask ? 'Створення...' : 'Додати'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {loadingTasks ? (
           <div className="card" style={{ textAlign: 'center', padding: 32 }}>
@@ -288,6 +400,53 @@ export default function FamilyView({ session }) {
           <RefreshCw size={16} className={loading ? 'spin' : ''} />
         </button>
       </div>
+
+      {/* Pending Approvals */}
+      {pendingApprovals.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid var(--color-warning)' }}>
+          <div className="card-header" style={{ marginBottom: 12 }}>
+            <span className="card-title">⏳ Очікують підтвердження ({pendingApprovals.length})</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pendingApprovals.map(approval => {
+              const assignee = families.flatMap(f => f.members).find(m => m.user_id === approval.family_tasks?.assigned_to);
+              
+              return (
+                <div key={approval.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--bg-secondary)',
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: assignee?.profile?.color || '#7c3aed',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontWeight: 700, fontSize: 14, flexShrink: 0
+                  }}>
+                    {(assignee?.nickname || assignee?.profile?.name || '?')[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      {approval.family_tasks?.task_name}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      Від: {assignee?.nickname || assignee?.profile?.name} • {approval.date}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-sm" style={{ background: 'var(--color-success)', color: 'white', border: 'none', padding: '6px 10px' }} onClick={() => handleReview(approval.id, 'approved')}>
+                      <Check size={16} />
+                    </button>
+                    <button className="btn btn-sm" style={{ background: 'var(--color-danger)', color: 'white', border: 'none', padding: '6px 10px' }} onClick={() => handleReview(approval.id, 'rejected')}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Create family form */}
       {showCreate && (

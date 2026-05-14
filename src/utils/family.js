@@ -241,3 +241,177 @@ export async function deleteFamily(familyId) {
   if (error) return { error: error.message };
   return { data: true };
 }
+
+// ==================== FAMILY TASKS (PHASE 2) ====================
+
+/**
+ * Create a task for another family member
+ */
+export async function createFamilyTask(familyId, assigneeId, taskName, taskData, parentalControl = false) {
+  if (!isSupabaseConfigured()) return { error: 'Supabase не налаштований' };
+  
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: 'Не авторизовано' };
+
+  const { data, error } = await supabase
+    .from('family_tasks')
+    .insert({
+      family_id: familyId,
+      created_by: userData.user.id,
+      assigned_to: assigneeId,
+      task_name: taskName,
+      task_data: taskData,
+      parental_control: parentalControl
+    })
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  return { data };
+}
+
+/**
+ * Get tasks assigned to the current user
+ */
+export async function getFamilyTasks() {
+  if (!isSupabaseConfigured()) return { data: [] };
+  
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { data: [] };
+
+  const { data: tasks, error } = await supabase
+    .from('family_tasks')
+    .select('*')
+    .eq('assigned_to', userData.user.id);
+
+  if (error) return { data: [], error: error.message };
+  return { data: tasks || [] };
+}
+
+/**
+ * Delete a family task
+ */
+export async function deleteFamilyTask(taskId) {
+  if (!isSupabaseConfigured()) return { error: 'Supabase не налаштований' };
+  
+  const { error } = await supabase
+    .from('family_tasks')
+    .delete()
+    .eq('id', taskId);
+
+  if (error) return { error: error.message };
+  return { data: true };
+}
+
+// ==================== APPROVALS (PHASE 2) ====================
+
+/**
+ * Submit a task for approval (or just mark as done if no parental control)
+ */
+export async function submitTaskCompletion(taskId, dateStr) {
+  if (!isSupabaseConfigured()) return { error: 'Supabase не налаштований' };
+  
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: 'Не авторизовано' };
+
+  // Check if we already have an approval row for this date
+  const { data: existing } = await supabase
+    .from('family_approvals')
+    .select('*')
+    .eq('family_task_id', taskId)
+    .eq('date', dateStr)
+    .single();
+
+  if (existing) {
+    if (existing.status === 'approved') return { data: existing }; // already approved
+    // Increment completion count and set back to pending
+    const { data, error } = await supabase
+      .from('family_approvals')
+      .update({ 
+        completion_count: existing.completion_count + 1,
+        status: 'pending' 
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    
+    if (error) return { error: error.message };
+    return { data };
+  } else {
+    // Insert new pending approval
+    const { data, error } = await supabase
+      .from('family_approvals')
+      .insert({
+        family_task_id: taskId,
+        date: dateStr,
+        completion_count: 1,
+        status: 'pending'
+      })
+      .select()
+      .single();
+      
+    if (error) return { error: error.message };
+    return { data };
+  }
+}
+
+/**
+ * Get all approvals for family tasks (used by TodayView to render status)
+ */
+export async function getFamilyApprovals(taskIds) {
+  if (!isSupabaseConfigured() || !taskIds || taskIds.length === 0) return { data: [] };
+  
+  const { data, error } = await supabase
+    .from('family_approvals')
+    .select('*')
+    .in('family_task_id', taskIds);
+
+  if (error) return { data: [], error: error.message };
+  return { data: data || [] };
+}
+
+/**
+ * Get pending approvals for families the user is a parent of
+ */
+export async function getPendingApprovals() {
+  if (!isSupabaseConfigured()) return { data: [] };
+  
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { data: [] };
+
+  // Note: RLS ensures parents only see what they are allowed to see
+  const { data, error } = await supabase
+    .from('family_approvals')
+    .select(`
+      *,
+      family_tasks (
+        id, task_name, task_data, assigned_to
+      )
+    `)
+    .eq('status', 'pending');
+
+  if (error) return { data: [], error: error.message };
+  return { data: data || [] };
+}
+
+/**
+ * Review a pending task completion (approve or reject)
+ */
+export async function reviewTaskCompletion(approvalId, status) {
+  if (!isSupabaseConfigured()) return { error: 'Supabase не налаштований' };
+  
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) return { error: 'Не авторизовано' };
+
+  const { error } = await supabase
+    .from('family_approvals')
+    .update({ 
+      status, 
+      reviewed_by: userData.user.id,
+      reviewed_at: new Date().toISOString()
+    })
+    .eq('id', approvalId);
+
+  if (error) return { error: error.message };
+  return { data: true };
+}

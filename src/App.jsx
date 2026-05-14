@@ -9,9 +9,9 @@ import {
   loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
   loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId,
   createProfile, deleteProfile, migrateOldData,
-  createDailyBackup, restoreFromBackup
 } from './utils/storage';
 import { pushData, pullData } from './utils/sync';
+import { getFamilyTasks, getFamilyApprovals, submitTaskCompletion } from './utils/family';
 import { getAllPeriodScores } from './utils/scoring';
 import { defaultTasks } from './data/defaultTasks';
 import TodayView from './components/TodayView';
@@ -91,6 +91,8 @@ export default function App() {
     }
     return defaultTasks;
   });
+  
+  const [familyTasksData, setFamilyTasksData] = useState([]);
 
   // Reload tasks when profile or session changes
   useEffect(() => {
@@ -114,11 +116,42 @@ export default function App() {
         if (cloudTasks && Array.isArray(cloudTasks) && cloudTasks.length > 0) {
           setTasks(cloudTasks); // Оновлюємо стейт, і він автоматично збережеться в localStorage
         }
+        
+        // Fetch family tasks and their approvals
+        if (session) {
+          const { data: ft } = await getFamilyTasks();
+          if (ft && ft.length > 0) {
+            const taskIds = ft.map(t => t.id);
+            const { data: approvals } = await getFamilyApprovals(taskIds);
+            
+            // Transform family tasks to look like regular tasks
+            const transformed = ft.map(t => {
+              const taskObj = { ...t.task_data, id: t.id, isFamilyTask: true, parentalControl: t.parental_control, completions: {}, approvalStatus: {} };
+              
+              // Map approvals into completions and status
+              approvals.forEach(a => {
+                if (a.family_task_id === t.id) {
+                  if (a.status === 'approved' || !t.parental_control) {
+                    taskObj.completions[a.date] = a.completion_count;
+                  }
+                  taskObj.approvalStatus[a.date] = a.status;
+                }
+              });
+              
+              return taskObj;
+            });
+            
+            setFamilyTasksData(transformed);
+          } else {
+            setFamilyTasksData([]);
+          }
+        }
+        
         setIsSyncing(false);
       };
       syncPull();
     }
-  }, [currentProfileId]);
+  }, [currentProfileId, session]);
 
   // Автоматичний щоденний бекап
   useEffect(() => {
@@ -144,7 +177,10 @@ export default function App() {
     }
   }, [tasks, currentProfileId]);
 
-  const scores = getAllPeriodScores(tasks);
+  // Combine local tasks and family tasks for rendering
+  const allTasks = [...tasks, ...familyTasksData];
+
+  const scores = getAllPeriodScores(allTasks);
   const totalScore = scores.all?.score || 0;
 
   // Profile actions
@@ -205,7 +241,29 @@ export default function App() {
     });
   }, []);
 
-  const logCompletion = useCallback((taskId, dateStr, delta) => {
+  const logCompletion = useCallback(async (taskId, dateStr, delta) => {
+    // Check if it's a family task
+    const familyTask = familyTasksData.find(t => t.id === taskId);
+    if (familyTask) {
+      if (delta > 0) {
+        // Submit for approval (or auto-approve if no parental control)
+        const { data, error } = await submitTaskCompletion(taskId, dateStr);
+        if (!error && data) {
+          // Optimistically update familyTasksData
+          setFamilyTasksData(prev => prev.map(t => {
+            if (t.id !== taskId) return t;
+            const updated = { ...t };
+            updated.approvalStatus = { ...updated.approvalStatus, [dateStr]: data.status };
+            if (data.status === 'approved' || !t.parentalControl) {
+              updated.completions = { ...updated.completions, [dateStr]: data.completion_count };
+            }
+            return updated;
+          }));
+        }
+      }
+      return; // Family tasks handle decrements differently (or not at all if pending)
+    }
+
     setTasks(prev => prev.map(t => {
       if (t.id !== taskId) return t;
       const current = t.completions?.[dateStr] || 0;
@@ -215,7 +273,7 @@ export default function App() {
         completions: { ...t.completions, [dateStr]: newVal },
       };
     }));
-  }, []);
+  }, [familyTasksData]);
 
   const handleExport = () => exportTasksJSON(tasks);
 
@@ -290,9 +348,9 @@ export default function App() {
   const renderPage = () => {
     switch (activePage) {
       case 'today':
-        return <TodayView tasks={tasks} logCompletion={logCompletion} />;
+        return <TodayView tasks={allTasks} logCompletion={logCompletion} />;
       case 'stats':
-        return <StatsView tasks={tasks} scores={scores} />;
+        return <StatsView tasks={allTasks} scores={scores} />;
       case 'tasks':
         return <TaskManager tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} reorderTasks={reorderTasks} />;
       case 'family':
@@ -300,7 +358,7 @@ export default function App() {
       case 'support':
         return <SupportView />;
       default:
-        return <TodayView tasks={tasks} logCompletion={logCompletion} />;
+        return <TodayView tasks={allTasks} logCompletion={logCompletion} />;
     }
   };
 
