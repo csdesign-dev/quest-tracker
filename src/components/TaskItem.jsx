@@ -52,7 +52,7 @@ export default function TaskItem({ task, dateStr, onLog, onTaskClick }) {
             task.type === 'limit' ? 'Ліміт' : 'Бонус'
           }</span>
           {task.isFamilyTask && (
-            <span className="badge" style={{ background: 'rgba(124,58,237,0.15)', color: 'var(--color-primary-light)', marginLeft: 4 }}>
+            <span className="badge" style={{ background: 'rgba(212,255,0,0.15)', color: 'var(--color-primary)', marginLeft: 4 }}>
               Сім'я
             </span>
           )}

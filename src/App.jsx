@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import {
   LayoutDashboard, CalendarCheck, BarChart3, ListTodo, Zap, Menu, X,
-  Download, Upload, LogOut, User, HelpCircle, RefreshCw, Users
+  Download, Upload, LogOut, User, HelpCircle, RefreshCw, Users, Plus
 } from 'lucide-react';
 import {
   loadTasks, saveTasks, exportTasksJSON, importTasksJSON,
@@ -530,16 +530,22 @@ export default function App() {
       {/* Mobile Bottom Nav */}
       <div className="mobile-nav">
         <div className="mobile-nav-items">
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              className={`mobile-nav-item ${activePage === item.id ? 'active' : ''}`}
-              onClick={() => navigate(item.id)}
-            >
-              <item.icon size={20} />
-              {item.label}
-            </button>
+          {NAV_ITEMS.map((item, index) => (
+            <React.Fragment key={item.id}>
+              <button
+                className={`mobile-nav-item ${activePage === item.id ? 'active' : ''}`}
+                onClick={() => navigate(item.id)}
+              >
+                <item.icon size={20} />
+                {item.label}
+              </button>
+              {index === 1 && <div className="mobile-nav-spacer" />}
+            </React.Fragment>
           ))}
+          
+          <button className="mobile-fab" onClick={() => navigate('tasks')}>
+            <Plus size={32} />
+          </button>
         </div>
       </div>
     </div>
