@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, UserPlus, Copy, Check, ChevronRight, ChevronLeft,
-  Crown, Baby, User, RefreshCw, Trash2, LogOut, X, Shield
+  Crown, Baby, User, RefreshCw, Trash2, LogOut, X, Shield, Mail, Link
 } from 'lucide-react';
 import { 
   createFamily, joinFamily, getMyFamilies, getMemberTasks, updateMemberRole, removeMember, leaveFamily, deleteFamily,
@@ -16,13 +16,13 @@ const ROLE_LABELS = {
   member: { label: 'Член сім\'ї', icon: User, color: '#a78bfa' },
 };
 
-export default function FamilyView({ session }) {
+export default function FamilyView({ session, initialJoinCode }) {
   const [families, setFamilies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
+  const [showJoin, setShowJoin] = useState(!!initialJoinCode);
   const [familyName, setFamilyName] = useState('');
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState(initialJoinCode || '');
   const [joinRole, setJoinRole] = useState('child');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -58,6 +58,13 @@ export default function FamilyView({ session }) {
     loadFamilies();
   }, [loadFamilies]);
 
+  useEffect(() => {
+    if (initialJoinCode && session) {
+      setShowJoin(true);
+      setJoinCode(initialJoinCode);
+    }
+  }, [initialJoinCode, session]);
+
   const handleCreateFamily = async () => {
     setError('');
     if (!familyName.trim()) { setError('Введіть назву сім\'ї'); return; }
@@ -84,6 +91,20 @@ export default function FamilyView({ session }) {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyLink = (code) => {
+    const link = `${window.location.origin}/?joinCode=${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedCode('link-' + code);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleSendEmail = (code, familyName) => {
+    const link = `${window.location.origin}/?joinCode=${code}`;
+    const subject = encodeURIComponent(`Запрошення у сім'ю "${familyName}"`);
+    const body = encodeURIComponent(`Привіт!\n\nПриєднуйся до моєї сім'ї "${familyName}" у Quest Tracker.\n\nПерейди за цим посиланням, щоб приєднатися автоматично:\n${link}\n\nАбо введи код вручну: ${code}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
   const handleViewMember = async (member) => {
@@ -529,16 +550,34 @@ export default function FamilyView({ session }) {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              {/* Invite code */}
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleCopyCode(family.invite_code)}
-                title="Скопіювати код запрошення"
-                style={{ fontSize: 12 }}
-              >
-                {copiedCode === family.invite_code ? <Check size={14} /> : <Copy size={14} />}
-                {' '}{family.invite_code}
-              </button>
+              {/* Invite group */}
+              <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 2, border: '1px solid var(--border-subtle)' }}>
+                <button
+                  className="btn-icon"
+                  onClick={() => handleCopyLink(family.invite_code)}
+                  title="Скопіювати посилання"
+                  style={{ width: 32, height: 32, padding: 0 }}
+                >
+                  {copiedCode === 'link-' + family.invite_code ? <Check size={14} color="var(--color-success)" /> : <Link size={14} />}
+                </button>
+                <button
+                  className="btn-icon"
+                  onClick={() => handleSendEmail(family.invite_code, family.name)}
+                  title="Надіслати на Email"
+                  style={{ width: 32, height: 32, padding: 0 }}
+                >
+                  <Mail size={14} />
+                </button>
+                <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
+                <button
+                  className="btn-icon"
+                  onClick={() => handleCopyCode(family.invite_code)}
+                  title="Скопіювати код"
+                  style={{ width: 'auto', padding: '0 8px', fontSize: 12, fontWeight: 700, letterSpacing: 1 }}
+                >
+                  {copiedCode === family.invite_code ? <Check size={14} color="var(--color-success)" /> : family.invite_code}
+                </button>
+              </div>
               {/* Family actions */}
               {family.myRole === 'parent' ? (
                 <button className="btn-icon" onClick={() => handleDeleteFamily(family.id)} title="Видалити сім'ю" style={{ color: 'var(--color-danger)' }}>

@@ -35,7 +35,12 @@ const NAV_ITEMS = [
 export default function App() {
   const [profiles, setProfiles] = useState(() => loadProfiles());
   const [activeProfileId, setActiveProfile] = useState(() => getActiveProfileId());
-  const [activePage, setActivePage] = useState('today');
+  
+  // Parse URL for join code
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlJoinCode = urlParams.get('joinCode');
+  
+  const [activePage, setActivePage] = useState(urlJoinCode ? 'family' : 'today');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -413,7 +418,7 @@ export default function App() {
       case 'tasks':
         return <TaskManager tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} reorderTasks={reorderTasks} />;
       case 'family':
-        return <FamilyView session={session} />;
+        return <FamilyView session={session} initialJoinCode={urlJoinCode} />;
       case 'support':
         return <SupportView />;
       default:
