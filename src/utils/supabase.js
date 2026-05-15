@@ -8,7 +8,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = (supabaseUrl && supabaseAnonKey && supabaseAnonKey !== 'REPLACE_WITH_REAL_ANON_KEY')
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: 'quest-tracker-auth-token',
+        storage: window.localStorage
+      }
+    })
   : null;
 
 /**
