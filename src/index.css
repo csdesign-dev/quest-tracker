@@ -25,7 +25,7 @@
   
   /* Accent gradients */
   --gradient-primary: linear-gradient(135deg, #d4ff00, #a3cc00);
-  --gradient-success: linear-gradient(135deg, #10b981, #34d399);
+  --gradient-success: linear-gradient(135deg, #d4ff00, #a3cc00);
   --gradient-danger: linear-gradient(135deg, #ef4444, #f97316);
   --gradient-warning: linear-gradient(135deg, #f59e0b, #fbbf24);
   --gradient-info: linear-gradient(135deg, #6366f1, #818cf8);
@@ -34,8 +34,8 @@
   /* Solid colors */
   --color-primary: #d4ff00;
   --color-primary-light: #e6ff66;
-  --color-success: #10b981;
-  --color-success-light: #34d399;
+  --color-success: #d4ff00;
+  --color-success-light: #e6ff66;
   --color-danger: #ef4444;
   --color-danger-light: #fca5a5;
   --color-warning: #f59e0b;
@@ -106,6 +106,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  letter-spacing: -0.01em;
 }
 
 #root {
@@ -255,15 +256,16 @@ body {
 }
 
 .page-header h2 {
-  font-size: var(--font-2xl);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: var(--font-3xl);
+  font-weight: 900;
+  letter-spacing: -0.04em;
   margin-bottom: var(--space-xs);
 }
 
 .page-header p {
   color: var(--text-secondary);
-  font-size: var(--font-base);
+  font-size: var(--font-md);
+  margin-top: 4px;
 }
 
 /* ============================================
@@ -271,15 +273,14 @@ body {
    ============================================ */
 .card {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
   transition: all var(--transition-base);
-  backdrop-filter: blur(12px);
 }
 
 .card:hover {
-  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
 }
 
 .card-header {
@@ -512,17 +513,17 @@ body {
 .task-item {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background: var(--bg-glass);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  gap: var(--space-lg);
+  padding: 20px var(--space-lg);
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-lg);
   transition: all var(--transition-base);
 }
 
 .task-item:hover {
-  border-color: var(--border-hover);
   background: var(--bg-card-hover);
+  transform: translateY(-2px);
 }
 
 .task-item-icon {
@@ -617,8 +618,8 @@ body {
    ============================================ */
 .progress-bar-container {
   width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -648,21 +649,21 @@ body {
 .score-card {
   flex: 0 0 auto;
   min-width: 140px;
-  padding: var(--space-md);
+  padding: var(--space-lg);
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-xl);
   text-align: center;
   cursor: pointer;
   transition: all var(--transition-base);
 }
 .score-card:hover {
-  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
   transform: translateY(-2px);
 }
 .score-card.active {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-glow-primary);
+  border: 1px solid rgba(212, 255, 0, 0.3);
+  background: rgba(212, 255, 0, 0.05);
 }
 
 .score-card-period {
@@ -729,19 +730,19 @@ body {
 .tabs {
   display: flex;
   gap: var(--space-xs);
-  background: var(--bg-glass);
-  border-radius: var(--radius-md);
-  padding: 3px;
-  margin-bottom: var(--space-lg);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  padding: 6px;
+  margin-bottom: var(--space-xl);
   overflow-x: auto;
 }
 
 .tab {
   flex: 0 0 auto;
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
+  padding: 10px 24px;
+  border-radius: var(--radius-full);
   font-size: var(--font-sm);
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -755,8 +756,8 @@ body {
 }
 .tab.active {
   background: var(--color-primary);
-  color: white;
-  box-shadow: var(--shadow-sm);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-md);
 }
 
 /* ============================================

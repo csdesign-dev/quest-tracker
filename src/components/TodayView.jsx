@@ -20,9 +20,9 @@ const InlineTimeCounter = ({ completions, target, onLog, isLimit, exceeded }) =>
         onChange={(e) => setTimeInput(Math.max(5, Number(e.target.value)))}
         style={{
           width: 46,
-          background: 'var(--bg-secondary)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 4,
+          background: 'var(--bg-input)',
+          border: 'none',
+          borderRadius: 12,
           color: 'var(--text-primary)',
           textAlign: 'center',
           fontSize: 13,
@@ -54,7 +54,7 @@ const InlineTimeCounter = ({ completions, target, onLog, isLimit, exceeded }) =>
   );
 };
 
-export default function TodayView({ tasks, logCompletion }) {
+export default function TodayView({ tasks, logCompletion, profile }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTaskForDetails, setSelectedTaskForDetails] = useState(null);
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -157,12 +157,14 @@ export default function TodayView({ tasks, logCompletion }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header">
-        <h2>
-          <Calendar size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-          Задачі на день
-        </h2>
-        <p style={{ textTransform: 'capitalize' }}>{dateLabel}</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h2 style={{ fontSize: 'var(--font-4xl)' }}>
+            Hello, <br/>
+            <span style={{ color: 'var(--color-primary)' }}>{profile?.name || 'User'}!</span>
+          </h2>
+          <p style={{ marginTop: 8 }}>Let's start your day</p>
+        </div>
       </div>
 
       {/* Date navigation */}
@@ -188,7 +190,7 @@ export default function TodayView({ tasks, logCompletion }) {
                   padding: '8px 6px',
                   background: isSelected ? 'var(--gradient-primary)' : 'transparent',
                   border: dayIsToday && !isSelected ? '1px solid var(--color-primary)' : '1px solid transparent',
-                  color: isSelected ? 'white' : day > new Date() ? 'var(--text-muted)' : 'var(--text-secondary)',
+                  color: isSelected ? 'var(--text-inverse)' : day > new Date() ? 'var(--text-muted)' : 'var(--text-secondary)',
                   borderRadius: 'var(--radius-md)',
                   cursor: day > new Date() ? 'not-allowed' : 'pointer',
                   opacity: day > new Date() ? 0.4 : 1,

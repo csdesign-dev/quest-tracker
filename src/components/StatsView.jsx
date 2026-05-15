@@ -81,13 +81,10 @@ export default function StatsView({ tasks, scores }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h2>
-            <LayoutDashboard size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-            Статистика та Дашборд
-          </h2>
-          <p>Загальна інформація та детальний аналіз прогресу</p>
+          <h2>Статистика</h2>
+          <p style={{ marginTop: 8 }}>Загальна інформація та детальний аналіз</p>
         </div>
         
         <div className="tabs" style={{ marginBottom: 0 }}>

@@ -98,9 +98,9 @@ export default function TaskItem({ task, dateStr, onLog, onTaskClick }) {
               onChange={(e) => setTimeInput(Math.max(5, Number(e.target.value)))}
               style={{
                 width: 46,
-                background: 'var(--bg-secondary)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 4,
+                background: 'var(--bg-input)',
+                border: 'none',
+                borderRadius: 12,
                 color: 'var(--text-primary)',
                 textAlign: 'center',
                 fontSize: 13,

@@ -407,7 +407,7 @@ export default function App() {
   const renderPage = () => {
     switch (activePage) {
       case 'today':
-        return <TodayView tasks={allTasks} logCompletion={logCompletion} />;
+        return <TodayView tasks={allTasks} logCompletion={logCompletion} profile={activeProfile} />;
       case 'stats':
         return <StatsView tasks={allTasks} scores={scores} />;
       case 'tasks':
@@ -417,7 +417,7 @@ export default function App() {
       case 'support':
         return <SupportView />;
       default:
-        return <TodayView tasks={allTasks} logCompletion={logCompletion} />;
+        return <TodayView tasks={allTasks} logCompletion={logCompletion} profile={activeProfile} />;
     }
   };
 
